@@ -13,17 +13,20 @@ class Game:
         self.map = None
         self.light_map = None
         self.surface_map = pygame.Surface((constants.MAP_WIDTH[self.level]*32, constants.MAP_HEIGHT[self.level]*32))
-        self.surface_info = pygame.Surface((constants.WINDOW_WIDTH - constants.CAMERA_WIDTH*32, constants.WINDOW_HEIGHT))
-        self.surface_log = pygame.Surface((constants.CAMERA_WIDTH*32, constants.WINDOW_HEIGHT - constants.CAMERA_HEIGHT*32))
+        self.surface_log = pygame.Surface((constants.CAMERA_WIDTH*32, constants.WINDOW_HEIGHT))
         self.tiles = Spritesheet('resources/tiles.png')
-        self.player = Player(30, 25, constants.SPRITE_PLAYER, 10, 10)
-        self.creatures = [self.player]
+        self.player = Player(30, 25, constants.SPRITE_PLAYER, 40, 10)
+        self.creatures = [self.player] + [Monster(29, 25, constants.SPRITE_ENEMY_SLIME, 'Slime', 20, [(Item(30, 25, constants.SPRITE_ENEMY_SLIME, 'Slimy thing', 1), 1)], Behavior_simpleturn, Behavior_randommove, Behavior_simpleattack, Behavior_takedamage, Behavior_simpledeath) for i in range(5)]
         self.log = []
+        self.long_log = False
         self.camera = Camera(0, 0, constants.MAP_WIDTH[self.level], constants.MAP_HEIGHT[self.level], constants.CAMERA_WIDTH, constants.CAMERA_HEIGHT, self.player)
-        self.window_inventory = PlayerInventory(256)
-        self.window_floor = FloorInventory(256)
-        self.windows = [self.window_inventory, self.window_floor]
-        self.items = [Item(30, 25, constants.SPRITE_ENEMY_SLIME, 'PEPE THE FROG', 1), Item(30, 25, constants.SPRITE_ENEMY_SLIME, 'Slime meat!!!', 1), Item(0, 0, constants.SPRITE_ENEMY_SLIME, 'Slime meat', 1)]
+        self.window_inventory = PlayerInventory(False, False)
+        self.window_floor = FloorInventory(False, False)
+        self.window_stats = StatsScreen(False, False)
+        self.window_equip = EquipScreen(False, False)
+        self.windows = [self.window_inventory, self.window_floor, self.window_stats, self.window_equip]
+        self.popup_lock = False
+        self.items = [Item(30, 25, constants.SPRITE_ENEMY_SLIME, 'Slime meat!!!', 1), Item(0, 0, constants.SPRITE_ENEMY_SLIME, 'Slime meat', 1)]
     def addLogMessage(self, message, color):
         self.log.insert(0, (message, color))
     def creaturesExecuteTurn(self):
@@ -36,6 +39,11 @@ class Game:
     def initLight(self):
         self.light_map = map_light_init(self.map)
         map_light_update(self.light_map)
+    def placeFree(self, x, y):
+        for obj in self.creatures:
+            if (obj.x == x and obj.y == y):
+                return False
+        return True
 
 class Spritesheet(object):
     def __init__(self, filename):
@@ -80,16 +88,18 @@ class Camera:
         self.y = util_clamp(self.follow_object.y-self.height/2, self.min_y, self.max_y)
 
 class Window:
-    def __init__(self, width):
-        self.x = constants.CAMERA_WIDTH*32 - width
+    def __init__(self, parent, title, active, visible):
+        self.x = constants.CAMERA_WIDTH*32 - constants.POPUP_WIDTH
         self.y = 0
-        self.width = width
+        self.width = constants.POPUP_WIDTH
         self.height = constants.CAMERA_HEIGHT*32
         self.surface = pygame.Surface((self.width, self.height))
         self.surface.set_colorkey(constants.COLOR_COLORKEY)
-        self.active = False
-        self.visible = False
-    def setActive(self):
+        self.active = active
+        self.visible = visible
+        self.parent = parent
+        self.title = title
+    def switchActive(self):
         if not self.active:
             for window in GAME.windows:
                 window.visible = False
@@ -103,31 +113,38 @@ class Window:
             self.visible = False
     def draw(self):
         if self.visible:
-            self.getItems()
             self.surface.fill(constants.COLOR_COLORKEY)
             self.surface.fill(constants.COLOR_DARKGRAY, pygame.Rect(0, 0, self.width, self.height))
+            draw_text(self.surface, self.title, constants.POPUP_OFFSET_X, constants.POPUP_OFFSET_Y, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
 class WindowSelectable(Window):
-    def setActive(self):
-        super().setActive()
+    def __init__(self, parent, title, active, visible):
+        super().__init__(parent, title, active, visible)
+        self.index = 0
+    def switchActive(self):
+        super().switchActive()
+        self.getItems()
         self.index = 0
     def input(self, key):
         if key == 'up':
             self.index = (self.index - 1) % len(self.items)
         if key == 'down':
             self.index = (self.index + 1) % len(self.items)
-class PlayerInventory(WindowSelectable):
-    def __init__(self, width):
-        super().__init__(width)
     def draw(self):
         super().draw()
         if len(self.items) > 0 and self.visible:
             self.surface.fill(constants.COLOR_DARKRED, pygame.Rect(0, self.index*16+32, self.width, 16))
-            draw_text(self.surface, 'INVENTORY', 4, 8, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
-            for x in range(len(self.items)):
-                draw_text(self.surface, GAME.player.inventory[x].name, 4, x*16+32, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
+            for item in range(len(self.items)):
+                if self.items[item] == None:
+                    draw_text(self.surface, 'None', constants.POPUP_OFFSET_X, item*16+32, constants.FONT_PERFECTDOS, constants.COLOR_GRAY)
+                else:
+                    draw_text(self.surface, self.items[item].name, constants.POPUP_OFFSET_X, item*16+32, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
             SCREEN.blit(self.surface, (self.x, self.y))
         elif self.active:
-            self.setActive()
+            self.switchActive()
+class PlayerInventory(WindowSelectable):
+    def __init__(self, active, visible):
+        super().__init__(None, 'INVENTORY', active, visible)
+        self.items = []
     def getItems(self):
         self.items = GAME.player.inventory
         if len(self.items) > 0:
@@ -135,37 +152,82 @@ class PlayerInventory(WindowSelectable):
             self.y = constants.CAMERA_HEIGHT*32 - self.height
     def input(self, key):
         super().input(key)
-        if key == 't':
+        if key == 'throw':
             GAME.player.throwItem(self.index)
             if self.index > 0:
                 self.index -= 1
+        if key == 'inventory':
+            self.switchActive()
 class FloorInventory(WindowSelectable):
-    def __init(self, width):
-        super().__init__(width)
-    def draw(self):
-        super().draw()
-        if len(self.items) > 0:
-            self.surface.fill(constants.COLOR_DARKRED, pygame.Rect(0, self.index*16+32, self.width, 16))
-            draw_text(self.surface, 'FOUND ITEMS', 4, 8, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
-            for x in range(len(self.items)):
-                draw_text(self.surface, self.items[x][0].name, 4, x*16+32, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
-            SCREEN.blit(self.surface, (self.x, self.y))
-        elif self.active:
-            self.setActive()
+    def __init__(self, active, visible):
+        super().__init__(None, 'SEARCH', active, visible)
+        self.items = []
     def getItems(self):
+        self.itemsWithIndex = []
         self.items = []
         for i in range(len(GAME.items)):
             if (GAME.items[i].x == GAME.player.x and GAME.items[i].y == GAME.player.y):
-                self.items.append((GAME.items[i], i))
+                self.itemsWithIndex.append((GAME.items[i], i))
+                self.items.append(GAME.items[i])
         if len(self.items) > 0:
             self.height = min(len(self.items)*16 + 32, constants.CAMERA_HEIGHT*32)
             self.y = constants.CAMERA_HEIGHT*32 - self.height
     def input(self, key):
         super().input(key)
-        if key == 'g':
-            GAME.player.pickupItem(self.items[self.index][1])
+        if key == 'grab':
+            GAME.player.pickupItem(self.itemsWithIndex[self.index][1])
+            self.getItems()
             if self.index > 0:
                 self.index -= 1
+        if key == 'search':
+            self.switchActive()
+            if self.items == []:
+                GAME.addLogMessage('You don\'t find anything...', constants.COLOR_GRAY)
+class EquipScreen(WindowSelectable):
+    def __init__(self, active, visible):
+        super().__init__(None, 'EQUIPMENT', active, visible)
+        self.items = []
+        self.chooseWindow = WindowSelectable(self, '', False, False)
+    def getItems(self):
+        self.items = GAME.player.equipment
+        self.height = 160 # EQUIP PIECES(8) * 16 + 32
+        self.y = constants.CAMERA_HEIGHT*32 - self.height
+    def input(self, key):
+        super().input(key)
+        if key == 'equipment':
+            self.switchActive()
+class StatsScreen(WindowSelectable):
+    def __init__(self, active, visible):
+        super().__init__(None, 'STATS', active, visible)
+        self.items = []
+        self.statNames = ['Strength', 'MaxHP', 'Physical Attack', 'Resistance', 'Carry Capacity',
+        'Agility', 'Armor', 'Critical Chance', 'Evasion', 'Accuracy',
+        'Intellect', 'MaxMP', 'Mana Costs', 'Magical Attack', 'Free Cast Chance']
+        self.height = 272 # STATS(15) * 16 + 32
+        self.y = constants.CAMERA_HEIGHT*32 - self.height
+    def getItems(self):
+        self.items = []
+        for i in range(14):
+            item = self.statNames[i] + ': ' + str(GAME.player.stats[i])
+            self.items.append(item)
+    def input(self, key):
+        super().input(key)
+        if key == 'assign':
+            self.getItems()
+        if key == 'stats':
+            self.switchActive()
+    def draw(self):
+        if self.visible:
+            self.surface.fill(constants.COLOR_COLORKEY)
+            self.surface.fill(constants.COLOR_DARKGRAY, pygame.Rect(0, 0, self.width, self.height))
+            draw_text(self.surface, self.title, constants.POPUP_OFFSET_X, constants.POPUP_OFFSET_Y, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
+
+            self.surface.fill(constants.COLOR_DARKRED, pygame.Rect(0, self.index*16+32, self.width, 16))
+            for item in range(len(self.items)):
+                draw_text(self.surface, self.items[item], constants.POPUP_OFFSET_X, item*16+32, constants.FONT_PERFECTDOS, constants.COLOR_WHITE)
+            SCREEN.blit(self.surface, (self.x, self.y))
+        elif self.active:
+            self.switchActive()
 
 class Entity:
     def __init__(self, x, y, sprite):
@@ -182,8 +244,7 @@ class Creature(Entity):
         self.tag = 'neutral'
     def move(self, dx, dy): # CHECK FOR CREATURE IN THE MOVING TILE AND ATTACK. IF NOT, MOVE.
         for obj in GAME.creatures:
-            if (obj is not self and obj.x == self.x + dx and obj.y == self.y + dy and self.isEnemy(obj)):
-                self.attack(obj, 5)
+            if (obj.x == self.x + dx and obj.y == self.y + dy):
                 return
         if GAME.map[self.x + dx][self.y + dy].passable:
             self.x += dx
@@ -191,7 +252,20 @@ class Creature(Entity):
     def isEnemy(self, target):
         return self.tag != target.tag
     def execute_action(self):
-        return
+        for action in self.actionTurn:
+            action.execute()
+    def move(self, dx = 0, dy = 0):
+        for action in self.actionMove:
+            action.execute(dx, dy)
+    def attack(self, obj):
+        for action in self.actionAttack:
+            action.execute(obj)
+    def damage(self, value):
+        for action in self.actionTakeDamage:
+            action.execute(value)
+    def die(self):
+        for action in self.actionDeath:
+            action.execute()
 class Player(Creature):
     def __init__(self, x, y, sprite, maxHp, maxResource):
         super().__init__(x, y, sprite, maxHp)
@@ -201,15 +275,19 @@ class Player(Creature):
         self.tag = 'human'
         self.xp = 0
         self.capacity = 100
+        self.equipment = [None for i in range(8)]
+        self.stats = [0 for i in range(14)]
+        self.damageStat = 10 # PLACEHOLDER
         self.active = True
+        self.actionMove = [Behavior_playermove(self)]
+        self.actionAttack = [Behavior_simpleattack(self)]
+        self.actionDeath = [Behavior_playerdeath(self)]
+        self.actionTakeDamage = [Behavior_takedamage(self)]
     def move(self, dx, dy):
         if self.active:
             super().move(dx, dy)
-    def attack(self, obj, dmg): # PRINT ATTACK MESSAGE AND DAMAGE.
-        GAME.log.insert(0, (self.name + ' attacks ' + obj.name + ' for ' + str(dmg) + ' damage!', constants.COLOR_WHITE))
-        obj.damage(dmg)
-    def damage(self, value): # REDUCE HP AND CHECK IF DEAD.
-        self.hp -= value
+    def execute_action(self):
+        return
     def canPickup(self, item):
         if self.capacity >= item.size:
             return True
@@ -224,34 +302,25 @@ class Player(Creature):
         item.x = self.x
         item.y = self.y
         GAME.items.append(item)
-
 class Monster(Creature):
-    def __init__(self, x, y, sprite, name, maxHp, drops):
+    def __init__(self, x, y, sprite, name, maxHp, drops, actionTurn, actionMove, actionAttack, actionTakeDamage, actionDeath):
         super().__init__(x, y, sprite, maxHp)
         self.name = name
+        self.damageStat = random.randint(1,6)
+        self.drops = drops
+        self.actionTurn = [actionTurn(self)]
+        self.actionMove = [actionMove(self)]
+        self.actionAttack = [actionAttack(self)]
+        self.actionTakeDamage = [actionTakeDamage(self)]
+        self.actionDeath = [actionDeath(self)]
         self.tag = 'monster'
-    def attack(self, obj, dmg): # PRINT ATTACK MESSAGE AND DAMAGE.
-        GAME.log.insert(0, (self.name + ' attacks ' + obj.name + ' for ' + str(dmg) + ' damage!', constants.COLOR_RED))
-        obj.damage(dmg)
-    def damage(self, value): # REDUCE HP AND CHECK IF DEAD.
-        self.hp -= value
-        if self.hp <= 0:
-            GAME.creatures.remove(self)
-            for item in drops:
-                item.x = self.x
-                item.y = self.y
-                GAME.items.append(item)
-    def execute_action(self): # TAKE A TURN
-        if self.hp > 0:
-            rnd = random.randint(0, 5)
-            if rnd == 0:
-                self.move(1, 0)
-            if rnd == 1:
-                self.move(-1, 0)
-            if rnd == 2:
-                self.move(0, 1)
-            if rnd == 3:
-                self.move(0, -1)
+    def antistuck(self):
+        for creature in GAME.creatures:
+            if (creature is not self and self.x == creature.x and self.y == creature.y):
+                self.x += 1
+                self.y += 1
+                self.antistuck()
+
 
 class Item(Entity):
     def __init__(self, x, y, sprite, name, size):
@@ -261,6 +330,64 @@ class Item(Entity):
 #class Equipment(Item):
 #class Consumable(Item):
 
+class Component:
+    def __init__(self, parent):
+        self.parent = parent
+
+# BEHAVIOR CLASSES
+
+class Behavior_playermove(Component):
+    def execute(self, dx = 0, dy = 0):
+        if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
+            if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
+                self.parent.x += dx
+                self.parent.y += dy
+        else:
+            for creature in GAME.creatures:
+                if (creature is not self and creature.x == self.parent.x + dx and creature.y == self.parent.y + dy):
+                    self.parent.attack(creature)
+                    break
+class Behavior_playerdeath(Component):
+    def execute(self):
+        pygame.quit()
+        exit()
+
+class Behavior_simpleturn(Component):
+    def execute(self):
+        self.parent.antistuck()
+        if util_distance(self.parent, GAME.player) == 1:
+            self.parent.attack(GAME.player)
+        else:
+            self.parent.move()
+class Behavior_randommove(Component):
+    def execute(self, dx = 0, dy = 0):
+        rnd = random.randint(1,5)
+        if rnd == 0:
+            dx, dy = (-1, 0)
+        elif rnd == 1:
+            dx, dy = (1, 0)
+        elif rnd == 2:
+            dx, dy = (0, -1)
+        elif rnd == 3:
+            dx, dy = (0, 1)
+        else:
+            dx, dy = (0, 0)
+        if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
+            if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
+                self.parent.x += dx
+                self.parent.y += dy
+class Behavior_takedamage(Component):
+    def execute(self, damage):
+        self.parent.hp -= damage
+        if self.parent.hp <= 0:
+            self.parent.die()
+class Behavior_simpledeath(Component):
+    def execute(self):
+        GAME.creatures.remove(self.parent)
+class Behavior_simpleattack(Component):
+    def execute(self, receiver):
+        receiver.damage(self.parent.damageStat)
+        GAME.addLogMessage(self.parent.name + ' attacks ' + receiver.name + ' for ' + str(self.parent.damageStat) + ' damage!', constants.COLOR_RED)
 
 # GAME
 def game_init():
@@ -286,6 +413,9 @@ def game_input():
             pygame.quit()
             exit()
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                exit()
             if GAME.player.active:
                 if event.key == pygame.K_UP:
                     GAME.player.move(0, -1)
@@ -303,6 +433,26 @@ def game_input():
                     GAME.player.move(1, 0)
                     map_light_update(GAME.light_map)
                     return "move"
+            if event.key == constants.KEY_EQUIPMENT:
+                if GAME.popup_lock == False:
+                    for window in GAME.windows:
+                        window.input('equipment')
+                    return "none"
+            if event.key == constants.KEY_INVENTORY:
+                if GAME.popup_lock == False:
+                    for window in GAME.windows:
+                        window.input('inventory')
+                    return "none"
+            if event.key == constants.KEY_SEARCH:
+                if GAME.popup_lock == False:
+                    for window in GAME.windows:
+                        window.input('search')
+                    return "none"
+            if event.key == constants.KEY_STATS:
+                if GAME.popup_lock == False:
+                    for window in GAME.windows:
+                        window.input('stats')
+                    return "none"
             if event.key == pygame.K_UP:
                 for window in GAME.windows:
                     if window.active:
@@ -313,22 +463,22 @@ def game_input():
                     if window.active:
                         window.input('down')
                         return "none"
-            if event.key == pygame.K_t:
+            if event.key == constants.KEY_THROW:
                 for window in GAME.windows:
                     if window.active:
-                        window.input('t')
+                        window.input('throw')
                         return "none"
-            if event.key == pygame.K_g:
+            if event.key == constants.KEY_GRAB:
                 for window in GAME.windows:
                     if window.active:
-                        window.input('g')
+                        window.input('grab')
                         return "none"
-            if event.key == pygame.K_i:
-                GAME.window_inventory.setActive()
+            if event.key == constants.KEY_LOG:
+                if GAME.long_log:
+                    GAME.long_log = False
+                else:
+                    GAME.long_log = True
                 return "none"
-            if event.key == pygame.K_s:
-                GAME.window_floor.setActive()
-                return "move"
     return "none"
 
 
@@ -336,18 +486,21 @@ def game_input():
 def draw_game():
     SCREEN.fill(constants.COLOR_BLACK)
     GAME.surface_map.fill(constants.COLOR_BLACK)
-    GAME.surface_info.fill(constants.COLOR_BLACK)
-    GAME.surface_log.fill(constants.COLOR_BLACK)
-    #GAME.surface_log.set_colorkey(constants.COLOR_COLORKEY)
+    GAME.surface_log.fill(constants.COLOR_COLORKEY)
+    if GAME.long_log:
+        height = min(constants.LOG_MAX_LENGTH_LONG*18 + 8, len(GAME.log)*18 + 8)
+        GAME.surface_log.fill(constants.COLOR_DARKESTGRAY, pygame.Rect(0, constants.WINDOW_HEIGHT - height, constants.LOG_WIDTH, height))
+    else:
+        height = min(constants.LOG_MAX_LENGTH*18 + 8, len(GAME.log)*18 + 8)
+        GAME.surface_log.fill(constants.COLOR_DARKESTGRAY, pygame.Rect(0, constants.WINDOW_HEIGHT - height, constants.LOG_WIDTH, height))
+    GAME.surface_log.set_colorkey(constants.COLOR_COLORKEY)
     draw_map()
-    draw_info()
     draw_log()
     for creature in GAME.creatures:
         if libtcodpy.map_is_in_fov(GAME.light_map, creature.x, creature.y):
             creature.draw(GAME.surface_map, GAME.camera)
     SCREEN.blit(GAME.surface_map, (0, 0))
-    SCREEN.blit(GAME.surface_info, (constants.CAMERA_WIDTH*32, 0))
-    SCREEN.blit(GAME.surface_log, (0, constants.CAMERA_HEIGHT*32))
+    SCREEN.blit(GAME.surface_log, (0, 0))
     for window in GAME.windows:
         if window.visible:
             window.draw()
@@ -362,11 +515,14 @@ def draw_map():
                 GAME.map[GAME.camera.x + x][GAME.camera.y + y].discovered = True
             elif GAME.map[GAME.camera.x + x][GAME.camera.y + y].discovered == True:
                 GAME.surface_map.blit(GAME.map[GAME.camera.x + x][GAME.camera.y + y].sprite_shadow, (x*32, y*32))
-def draw_info():
-    GAME.surface_info.blit(constants.SPRITE_GUI_INFO, (0, 0))
+
 def draw_log():
-    for x in range(0, min(constants.LOG_MAX_LENGTH, len(GAME.log))):
-        draw_text_bg(GAME.surface_log, GAME.log[x][0], 10, constants.WINDOW_HEIGHT-constants.CAMERA_HEIGHT*32-20-x*16, constants.FONT_PERFECTDOS, GAME.log[x][1], constants.COLOR_BLACK)
+    if GAME.long_log:
+        messages = constants.LOG_MAX_LENGTH_LONG
+    else:
+        messages = constants.LOG_MAX_LENGTH
+    for x in range(0, min(messages, len(GAME.log))):
+        draw_text_bg(GAME.surface_log, GAME.log[x][0], 10, constants.WINDOW_HEIGHT - x*18 - 20, constants.FONT_PERFECTDOS, GAME.log[x][1], constants.COLOR_DARKGRAY)
 def draw_text(surface, text, x, y, font, text_color):
     surface.blit(font.render(text, False, text_color), (x, y))
 def draw_text_bg(surface, text, x, y, font, text_color, bg_color):
@@ -450,6 +606,8 @@ def map_light_update(light_map):
 # UTIL
 def util_clamp(value, minv, maxv):
     return int(max(minv, min(value, maxv)))
+def util_distance(object1, object2):
+    return math.sqrt((object1.x - object2.x) * (object1.x - object2.x) + (object1.y - object2.y) * (object1.y - object2.y))
 
 
 # EXECUTION
