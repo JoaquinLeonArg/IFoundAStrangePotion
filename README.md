@@ -12,7 +12,7 @@ To be able to run the game from the source code you'll need:
 
 ## Ready to play version
 
-You can get a compiled version of the latest version(PREALPHA 0.1) [here] (https://drive.google.com/open?id=15CRF22RjwSi6ks0n0D4-ryTUpZpZWxoW).
+You can get a compiled version of the latest version(PREALPHA 0.1) [here](https://drive.google.com/open?id=15CRF22RjwSi6ks0n0D4-ryTUpZpZWxoW).
 
 ## Versioning
 
