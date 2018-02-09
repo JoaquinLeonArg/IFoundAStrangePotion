@@ -16,6 +16,7 @@ COLOR_DARKGRAY = (50, 50, 50)
 COLOR_DARKESTGRAY = (10, 10, 10)
 COLOR_WHITE = (255, 255, 255)
 COLOR_RED = (255, 0, 0)
+COLOR_LIGHTRED = (255, 100, 100)
 COLOR_DARKRED = (160, 10, 10)
 
 COLOR_HEAL = (0, 200, 0)
@@ -25,14 +26,19 @@ COLOR_ENEMY = (160, 30, 30)
 COLOR_INFO = (100, 100, 100)
 COLOR_HP = (255, 0, 0)
 COLOR_BORDER = (40, 40, 40)
+COLOR_SHADOW = (20, 20, 20)
+COLOR_HUNGER = (0, 200, 0)
 
 COLOR_COLORKEY = (255, 0, 255)
+
+EFFECTS_MAXTIME = 60
+DAMAGEPOPUP_MAXTIME = 50
 
 SPRITE_PLAYER = pygame.image.load('resources/player.png')
 SPRITE_ENEMY_SLIME = pygame.image.load('resources/enemy_slime.png')
 
 MAP_WIDTH = [60]
-MAP_HEIGHT = [50]
+MAP_HEIGHT = [60]
 
 BORDER_THICKNESS = 2
 
@@ -42,6 +48,7 @@ CAMERA_HEIGHT = 20
 LIGHT_RADIUS = 8
 
 FONT_PERFECTDOS = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 16)
+FONT_PERFECTDOS_LARGE = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 32)
 
 LOG_MAX_LENGTH = 4
 LOG_MAX_LENGTH_LONG = 20
