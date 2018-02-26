@@ -2,22 +2,31 @@ import game_classes
 import game_constants
 import random
 import util
+import pygame
+import libtcodpy
+import sys
+
+pygame.init()
 
 #SPRITESHEETS
 SPRITESHEET_TILES = game_classes.Spritesheet('resources/tiles.png')
 SPRITESHEET_CONSUMABLES = game_classes.Spritesheet('resources/consumables.png')
 SPRITESHEET_ENTITIES = game_classes.Spritesheet('resources/entities.png')
+SPRITESHEET_ICONS = game_classes.Spritesheet('resources/icons.png')
 
 # WINDOWS
 class Window_PlayerInventory(game_classes.WindowSelectable):
     def __init__(self):
-        super().__init__(None, 'Inventory', True, True, w_inventory_items, [w_arrowkeys_input, w_inventory_input], w_inventory_quantities)
+        super().__init__(None, 336, 'Equipment', True, True, game_constants.SPRITE_ITEMSWINDOW, w_inventory_items, [w_arrowkeys_input, w_inventory_input, w_update_description], bquantity = w_inventory_quantities, descriptionWindow = Window_Description, itemType = 0)
+class Window_PlayerEquipment(game_classes.WindowSelectable):
+    def __init__(self):
+        super().__init__(None, 336, 'Inventory', True, True, game_constants.SPRITE_ITEMSWINDOW, w_inventory_items, [w_arrowkeys_input, w_inventory_input, w_update_description], bquantity = w_inventory_quantities, descriptionWindow = Window_Description, itemType = 0)
 class Window_SearchInventory(game_classes.WindowSelectable):
     def __init__(self):
-        super().__init__(None, 'Found items', True, True, w_search_items, [w_arrowkeys_input, w_search_input])
+        super().__init__(None, 336, 'Found items', True, True, game_constants.SPRITE_ITEMSWINDOW, w_search_items, [w_arrowkeys_input, w_search_input, w_update_description], descriptionWindow = Window_Description, itemType = 0)
 class Window_Status(game_classes.WindowSelectable):
     def __init__(self):
-        super().__init__(None, 'Status', True, True, w_status_items, [w_arrowkeys_input], w_status_quantities)
+        super().__init__(None, 336, 'Status', True, True, game_constants.SPRITE_ITEMSWINDOW, w_status_items, [w_arrowkeys_input], w_status_quantities, itemType = 1)
 class Window_SelectTarget(game_classes.WindowSelectable):
     def __init__(self, parent, item):
         self.parent = parent
@@ -28,10 +37,11 @@ class Window_SelectTarget(game_classes.WindowSelectable):
         self.surface.set_alpha(50)
         self.active = True
         self.visible = True
-        self.image = GAME.entitiesSheet.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)
+        self.image = SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)
         for window in GAME.windows:
             if window is not self:
                 window.visible = False
+        self.descriptionWindow = None
     def draw(self):
         if self.visible:
             self.surface.fill(game_constants.COLOR_COLORKEY)
@@ -66,6 +76,50 @@ class Window_SelectTarget(game_classes.WindowSelectable):
                     self.parent.parent.index -= 1
                 GAME.action = 'item'
                 GAME.controlsText = game_constants.TEXT_ONINVENTORY
+class Window_Description(game_classes.Window):
+    def __init__(self, parent):
+        self.parent = parent
+        self.itemType = self.parent.itemType
+        self.item = None
+        self.visible = True
+        self.active = False
+        self.x = game_constants.BORDER_THICKNESS*2
+        self.y = 300
+        self.width = game_constants.POPUP_WIDTH
+        self.height = game_constants.CAMERA_HEIGHT*32 - self.y - game_constants.BORDER_THICKNESS*2
+        self.surface = pygame.Surface((self.width, self.height))
+        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
+        GAME.windows.append(self)
+    def draw(self):
+        if self.visible:
+            self.surface.blit(game_constants.SPRITE_DESCRIPTIONWINDOW, (0, 0))
+            if self.itemType == 0:
+                if self.item.sprite != None:
+                    self.surface.blit(pygame.transform.scale2x(self.item.sprite), (16, 16))
+                util.draw_text(self.surface, self.item.name, 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item.color)
+                util.draw_text(self.surface, self.item.itemType, 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+                for lineIndex in range(len(self.item.description)):
+                    xoffset = 0
+                    for element in self.item.description[lineIndex]:
+                        text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
+                        self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
+                        xoffset += text.get_width()
+            elif self.itemType == 1:
+                if self.item[2] != None:
+                    self.surface.blit(pygame.transform.scale2x(self.item[2]), (16, 16))
+                util.draw_text(self.surface, self.item[0], 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item[1])
+                util.draw_text(self.surface, self.item[3], 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+                for lineIndex in range(len(self.item[4])):
+                    xoffset = 0
+                    for element in self.item[4][lineIndex]:
+                        text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
+                        self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
+                        xoffset += text.get_width()
+            SCREEN.blit(self.surface, (self.x, self.y))
+class Window_Equipment(game_classes.WindowSelectable):
+    def __init__(self):
+        super().__init__(None, 336, 'Equipment', True, True, game_constants.SPRITE_ITEMSWINDOW, w_equipment_items, [w_arrowkeys_input, w_equipment_input, w_update_description], descriptionWindow = Window_Description, itemType = 0)
+
 
 class w_arrowkeys_input(game_classes.Component):
     def execute(self, key):
@@ -75,9 +129,13 @@ class w_arrowkeys_input(game_classes.Component):
             self.parent.index = (self.parent.index + 1) % len(self.parent.items)
         if key == 'cancel':
             self.parent.destroy()
+class w_update_description(game_classes.Component):
+    def execute(self, key):
+        if len(self.parent.items) > 0:
+            self.parent.descriptionWindow.item = self.parent.items[self.parent.index]
 class w_inventory_items(game_classes.Component):
     def execute(self):
-        return [(item.name, item.color) for item in GAME.player.inventory]
+        return [item for item in GAME.player.inventory]
 class w_inventory_quantities(game_classes.Component):
     def execute(self):
         return [item.size for item in GAME.player.inventory]
@@ -85,10 +143,10 @@ class w_inventory_input(game_classes.Component):
     def execute(self, key):
         if key == 'use':
             if GAME.player.inventory[self.parent.index].itemType == 'consumable':
-                self.parent.popupwindow = game_classes.WindowSelectable(self.parent, None, True, True, w_popupinventoryc_items, [w_arrowkeys_input, w_popupinventoryc_input])
+                self.parent.popupwindow = game_classes.WindowSelectable(self.parent, 112, '', True, True, game_constants.SPRITE_OPTIONSWINDOW, w_popupinventoryc_items, [w_arrowkeys_input, w_popupinventoryc_input], itemType = 1)
                 GAME.controlsText = game_constants.TEXT_ONPOPUP
             elif GAME.player.inventory[self.parent.index].itemType == 'equipment':
-                self.parent.popupwindow = game_classes.WindowSelectable(self.parent, None, True, True, w_popupinventorye_items, [w_arrowkeys_input, w_popupinventorye_input])
+                self.parent.popupwindow = game_classes.WindowSelectable(self.parent, 112, '', True, True, game_constants.SPRITE_OPTIONSWINDOW, w_popupinventorye_items, [w_arrowkeys_input, w_popupinventorye_input], itemType = 1)
             GAME.windows.append(self.parent.popupwindow)
             self.parent.active = False
         if key == 'cancel':
@@ -161,15 +219,17 @@ class w_popupinventoryc_input(game_classes.Component):
             GAME.controlsText = game_constants.TEXT_ONINVENTORY
 class w_search_items(game_classes.Component):
     def execute(self):
-        return [(item.name, item.color) for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]
+        return [item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]
 class w_search_input(game_classes.Component):
     def execute(self, key):
         if key == 'use':
             item = [item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)][self.parent.index]
-            if item.size <= GAME.player.capacity - GAME.player.currentWeight():
+            if item.size <= GAME.player.stats[10] - GAME.player.currentWeight() and len(GAME.player.inventory) < 30:
                 GAME.player.inventory.append(item)
                 GAME.items.remove(item)
                 self.parent.getItems()
+                if self.parent.index > 0:
+                    self.parent.index -= 1
             else:
                 GAME.addLogMessage('You are carrying too much.', game_constants.COLOR_INFO)
         if key == 'cancel':
@@ -184,6 +244,64 @@ class w_status_items(game_classes.Component):
 class w_status_quantities(game_classes.Component):
     def execute(self):
         return [status.turns for status in GAME.player.status]
+class w_equipment_items(game_classes.Component):
+    def execute(self):
+        equipmentNames = ['- Main hand -', '- Offhand -', '- Head -', '- Chest -', '- Legs -', '- Feet -', '- Hand -', '- Neck -']
+        returnList = []
+        for itemIndex in range(len(GAME.player.equipment)):
+            item = GAME.player.equipment[itemIndex]
+            if item == None:
+                itemNull = i_null()
+                itemNull.name = equipmentNames[itemIndex]
+                returnList.append(itemNull)
+            else:
+                returnList.append(item)
+        return returnList
+class w_equipment_input(game_classes.Component):
+    def execute(self, key):
+        if key == 'use':
+            self.parent.popupwindow = game_classes.WindowSelectable(self.parent, 112, '', True, True, game_constants.SPRITE_OPTIONSWINDOW, w_popupequipment_items, [w_arrowkeys_input, w_popupequipment_input, w_update_description], itemType = 0, descriptionWindow = Window_Description)
+            GAME.windows.append(self.parent.popupwindow)
+            self.parent.active = False
+            GAME.controlsText = game_constants.TEXT_ONPOPUP
+        if key == 'cancel':
+            GAME.player.active = True
+            GAME.controlsText = game_constants.TEXT_ONMAP
+            self.parent.destroy()
+class w_popupequipment_items(game_classes.Component):
+    def execute(self):
+        returnList = [i_equipnull()]
+        for item in GAME.player.inventory:
+            if item.itemType == 'equipment':
+                if item.slot == self.parent.parent.index:
+                    returnList.append(item)
+        return returnList
+class w_popupequipment_input(game_classes.Component):
+    def execute(self, key):
+        if key == 'use':
+            if self.parent.index == 0:
+                if GAME.player.equipment[self.parent.parent.index] != None:
+                    GAME.player.equipment[self.parent.parent.index].unequip()
+                    GAME.player.inventory.append(GAME.player.equipment[self.parent.parent.index])
+                GAME.player.equipment[self.parent.parent.index] = None
+            else:
+                itemToEquip = self.parent.items[self.parent.index]
+                if GAME.player.equipment[self.parent.parent.index] != None:
+                    GAME.player.equipment[self.parent.parent.index].unequip()
+                    GAME.player.inventory.append(GAME.player.equipment[self.parent.parent.index])
+                GAME.player.equipment[self.parent.parent.index] = itemToEquip
+                GAME.player.inventory.remove(itemToEquip)
+                GAME.player.equipment[self.parent.parent.index].equip()
+            self.parent.parent.getItems()
+            self.parent.destroy()
+            GAME.controlsText = game_constants.TEXT_ONEQUIPMENT
+            self.parent.parent.active = True
+            GAME.player.recalculateStats()
+        if key == 'cancel':
+            self.parent.destroy()
+            GAME.controlsText = game_constants.TEXT_ONEQUIPMENT
+            self.parent.parent.active = True
+            GAME.player.recalculateStats()
 
 # PLAYER BEHAVIORS
 class b_play_move(game_classes.Component):
@@ -214,14 +332,14 @@ class b_play_hunger(game_classes.Component):
 class d_play_health(game_classes.Component):
     def execute(self):
         if self.parent.hp < self.parent.stats[0]*0.5:
-            self.parent.stats[1] *= 0.5
+            self.parent.stats[2] *= 0.5
 class d_play_hunger(game_classes.Component):
     def execute(self):
         if self.parent.hunger < 50:
-            self.parent.stats[0] = int(self.parent.stats[0] * 0.8)
+            self.parent.stats[0] *= 0.8
         elif self.parent.hunger < 30:
-            self.parent.stats[0] = int(self.parent.stats[0] * 0.4)
-
+            self.parent.stats[0] *= 0.4
+        self.parent.stats[0] = int(self.parent.stats[0])
 
 # CREATURES BEHAVIOR
 class b_crea_simpleturn(game_classes.Component):
@@ -341,7 +459,7 @@ class e_createbomb(game_classes.Component):
         self.radius = radius
         self.damage = damage
     def execute(self):
-        SPRITESHEET_ENTITIES.append(n_bomb(self.parent.x, self.parent.y, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), self.turns, self.radius, self.damage))
+        GAME.entities.append(n_bomb(self.parent.x, self.parent.y, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), self.turns, self.radius, self.damage))
         GAME.addLogMessage('The bomb will explode in ' + str(self.turns) + ' turns!', game_constants.COLOR_ALLY)
 class e_eat(game_classes.Component):
     def __init__(self, parent, amount):
@@ -357,6 +475,8 @@ class e_eat(game_classes.Component):
         self.parent.hunger += value
 
         # DISTANCE EFFECTS
+
+
 class e_createbomb_l():
     def __init__(self, turns, radius, damage):
         self.turns = turns
@@ -412,7 +532,7 @@ class n_bomb(game_classes.Entity):
             for creature in GAME.creatures:
                 if util.distance(self, creature) <= self.radius:
                     creature.damage(self.damage, 'physical', 'explosion')
-            map_light_update(GAME.light_map)
+            util.map_light_update(GAME.light_map)
             GAME.addLogMessage('You hear a loud explosion.', game_constants.COLOR_INFO)
             GAME.entities.remove(self)
 
@@ -470,8 +590,27 @@ class t_unbreakable_wall(game_classes.Tile):
 # MONSTERS
 class m_slime(game_classes.Monster):
     def __init__(self, x, y):
-        super().__init__(x, y, game_constants.SPRITE_ENEMY_SLIME, 'Slime', 10, [(i_minorhealpotion(0, 0), 0.5)], [b_crea_simpleturn(self)], [b_crea_randommove(self)], [b_crea_simpleattack(self)], [b_crea_takedamage(self)], [b_crea_simpledeath(self)])
+        super().__init__(x, y, game_constants.SPRITE_ENEMY_SLIME, 'Slime', 10, [(i_minorhealpotion(0, 0), 0.8), (i_bomb(0, 0), 0.8), (i_meat(0, 0), 0.8), (i_throwablebomb(0, 0), 0.8)], [b_crea_simpleturn(self)], [b_crea_randommove(self)], [b_crea_simpleattack(self)], [b_crea_takedamage(self)], [b_crea_simpledeath(self)])
 
+# SPECIAL ITEMS
+class i_null(game_classes.Item):
+    def __init__(self):
+        self.itemType = ''
+        self.name = ''
+        self.x = 0
+        self.y = 0
+        self.description = []
+        self.color = game_constants.COLOR_GRAY
+        self.sprite = None
+class i_equipnull(game_classes.Item):
+    def __init__(self):
+        self.itemType = 'equipment'
+        self.name = 'None'
+        self.x = 0
+        self.y = 0
+        self.description = []
+        self.color = game_constants.COLOR_GRAY
+        self.sprite = None
 # CONSUMABLES
 class i_minorhealpotion(game_classes.Consumable):
     def __init__(self, x, y):
@@ -481,6 +620,8 @@ class i_minorhealpotion(game_classes.Consumable):
                          'Minor heal potion', #NAME
                          game_constants.COLOR_WHITE, #COLOR
                          1, #WEIGHT
+                         [[('Heals the user.', game_constants.COLOR_WHITE)],
+                         [('* Amount: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_GREEN)]], #DESCRIPTION
                          [e_flatheal(GAME.player, 10), e_getused(self)], #EFFECTS
                          useCondition = [c_playnotfullhealth(GAME.player)]) #CONDITION
 class i_bomb(game_classes.Consumable):
@@ -491,6 +632,10 @@ class i_bomb(game_classes.Consumable):
                          'Bomb', #NAME
                          game_constants.COLOR_WHITE, #COLOR
                          3, #WEIGHT
+                         [[('Drops a bomb under the user\'s feet.', game_constants.COLOR_WHITE)],
+                         [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
+                         [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
+                         [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]], #DESCRIPTION
                          [e_createbomb(GAME.player, 4, 4, 10), e_getused(self)]) #EFFECTS
 class i_meat(game_classes.Consumable):
     def __init__(self, x, y):
@@ -500,6 +645,8 @@ class i_meat(game_classes.Consumable):
                          'Meat', #NAME
                          game_constants.COLOR_WHITE, #COLOR
                          4, #WEIGHT
+                         [[('Replenishes the user food bar.', game_constants.COLOR_WHITE)],
+                         [('* Amount: ', game_constants.COLOR_WHITE), ('10 HP', game_constants.COLOR_GREEN)]], #DESCRIPTION
                          [e_eat(GAME.player, 80), e_getused(self)], #EFFECTS
                          useCondition = [c_playnotfullhunger(GAME.player)]) #CONDITION
 class i_throwablebomb(game_classes.ConsumableMap):
@@ -510,6 +657,11 @@ class i_throwablebomb(game_classes.ConsumableMap):
                          'Throwable bomb', #NAME
                          game_constants.COLOR_WHITE, #COLOR
                          3, #WEIGHT
+                         [[('Throws a bomb.', game_constants.COLOR_WHITE)],
+                         [('* Maximum range to throw: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
+                         [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
+                         [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
+                         [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]], #DESCRIPTION
                          [e_createbomb_l(4, 4, 10), e_getused(self)], #EFFECTS
                          c_initonplayer, #INITIAL COORDINATES
                          4) #MAX RANGE
@@ -521,18 +673,46 @@ class i_thunderrod(game_classes.ConsumableMap):
                          'Lightning rod', #NAME
                          game_constants.COLOR_WHITE, #COLOR
                          1, #WEIGHT
+                         [], #DESCRIPTION
                          [e_damage_l(5, 'magical', 'lightning'), e_getused(self)], #EFFECTS
                          c_initonplayer, #INITIAL COORDINATES
                          8, #MAX RANGE
                          targetCondition = [c_creatureinlocation(self)],
                          charges = 3) #TARGET CONDITION
 
+# EQUIPMENT BEHAVIORS
+class b_doublehealth(game_classes.Component):
+    def execute(self):
+        self.parent.stats[0] *= 2
+
+# EQUIPMENT
+class i_magichelmet_action(game_classes.Component):
+    def onEquip(self):
+        self.parent.modifiers = [b_doublehealth(GAME.player)]
+        for modifier in self.parent.modifiers:
+            GAME.player.modifiers.append(modifier)
+    def onUnequip(self):
+        for modifier in self.parent.modifiers:
+            GAME.player.modifiers.remove(modifier)
+class i_magichelmet(game_classes.Equipment):
+    def __init__(self, x, y):
+        super().__init__(x,
+                        y,
+                        game_constants.SPRITE_PLAYER,
+                        'Magic helmet',
+                        game_constants.COLOR_WHITE,
+                        12,
+                        [[('Increases user health by ', game_constants.COLOR_WHITE), ('100 %', game_constants.COLOR_RED)]],
+                        2,
+                        i_magichelmet_action)
+
 # PLAYABLE CHARACTERS
 class p_normal(game_classes.Player):
     def __init__(self, x, y):
         super().__init__(x,
                         y,
-                        game_constants.SPRITE_PLAYER,
+                        game_constants.SPRITE_PLAYER, [30, 10, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
+                        [None for i in range(8)],
                         [d_play_hunger(self, 11), d_play_health(self, 10)],
                         [s_health(self), s_hunger(self)],
                         [b_play_move(self)],

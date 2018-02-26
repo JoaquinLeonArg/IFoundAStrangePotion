@@ -51,7 +51,6 @@ class Game:
             if (obj.x == x and obj.y == y):
                 return False
         return True
-
 class Spritesheet(object):
     def __init__(self, filename):
         self.sheet = pygame.image.load(filename).convert()
@@ -82,7 +81,6 @@ class Tile:
         self.discovered = False
     def onDestroy(self):
         return
-
 class Camera:
     def __init__(self, min_x, min_y, max_x, max_y, width, height):
         self.min_x = min_x
@@ -96,7 +94,6 @@ class Camera:
     def update(self, x, y):
         self.x = util.clamp(x-self.width/2, self.min_x, self.max_x)
         self.y = util.clamp(y-self.height/2, self.min_y, self.max_y)
-
 class VisualEffect:
     def __init__(self, x, y, width, height, image = None, period = 0):
         self.time = 0
@@ -112,9 +109,8 @@ class VisualEffect:
             self.time %= self.period
     def draw(self): # DRAW
         SCREEN.blit(self.surface, (self.x - GAME.camera.x*32, self.y - GAME.camera.y*32))
-
 class Window:
-    def __init__(self, parent, title, active, visible):
+    def __init__(self, parent, active, visible, image):
         self.x = game_constants.CAMERA_WIDTH*32 - game_constants.POPUP_WIDTH - game_constants.BORDER_THICKNESS*2
         self.y = 0
         self.width = game_constants.POPUP_WIDTH
@@ -124,28 +120,22 @@ class Window:
         self.active = active
         self.visible = visible
         self.parent = parent
-        self.title = title
-    def switchActive(self):
-        if not self.active:
-            for window in GAME.windows:
-                window.visible = False
-                window.active = False
-            GAME.player.active = False
-            self.active = True
-            self.visible = True
-        else:
-            GAME.player.active = True
-            self.active = False
-            self.visible = False
+        self.image = image
     def draw(self):
         if self.visible:
             self.surface.fill(game_constants.COLOR_COLORKEY)
-            self.surface.fill(game_constants.COLOR_DARKESTGRAY, pygame.Rect(0, 0, self.width, self.height))
+            if self.image != None:
+                self.surface.blit(self.image, (0, 0))
             if self.title != '':
                 util.draw_text(self.surface, self.title, game_constants.POPUP_OFFSET_X, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+    def input(self, key):
+        pass
 class WindowSelectable(Window):
-    def __init__(self, parent, title, active, visible, bitems, binput, bquantity = None):
-        super().__init__(parent, title, active, visible)
+    def __init__(self, parent, height, title, active, visible, image, bitems, binput, bquantity = None, descriptionWindow = None, itemType = 0):
+        super().__init__(parent, active, visible, image)
+        self.itemType = itemType
+        self.height = height
+        self.title = title
         self.bitems = bitems(self)
         if bquantity:
             self.bquantity = bquantity(self)
@@ -154,16 +144,17 @@ class WindowSelectable(Window):
         self.binput = [action(self) for action in binput]
         self.getItems()
         self.getQuantities()
-        if title == None:
-            self.height = len(self.items)*16
-        else:
-            self.height = len(self.items)*16+32
         if self.parent == None:
             self.y = game_constants.CAMERA_HEIGHT*32 - self.height - game_constants.BORDER_THICKNESS*2
         else:
             self.y = self.parent.y - self.height - 4
         self.index = 0
         GAME.player.active = False
+        if descriptionWindow != None:
+            self.descriptionWindow = descriptionWindow(self)
+            self.descriptionWindow.item = self.items[0]
+        else:
+            self.descriptionWindow = None
     def input(self, key):
         for action in self.binput:
             action.execute(key)
@@ -175,14 +166,23 @@ class WindowSelectable(Window):
                     yoffset = 0
                 else:
                     yoffset = 32
-                self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(0, self.index*16+yoffset, self.width, 16))
-                for itemIndex in range(len(self.items)):
-                    util.draw_text(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1])
-                    if len(self.quantities) == len(self.items):
-                        text = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_WHITE)
-                        text_shadow = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_SHADOW)
-                        self.surface.blit(text_shadow, (self.width - text.get_width() - 4+2, itemIndex*16+yoffset+2))
-                        self.surface.blit(text, (self.width - text.get_width() - 4, itemIndex*16+yoffset))
+                self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16+yoffset, self.width - 8, 16))
+                if self.itemType == 0:
+                    for itemIndex in range(len(self.items)):
+                        util.draw_text(self.surface, self.items[itemIndex].name, game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex].color)
+                        if len(self.quantities) == len(self.items):
+                            text = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_WHITE)
+                            text_shadow = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_SHADOW)
+                            self.surface.blit(text_shadow, (self.width - text.get_width() - 4+2, itemIndex*16+yoffset+2))
+                            self.surface.blit(text, (self.width - text.get_width() - 4, itemIndex*16+yoffset))
+                elif self.itemType == 1:
+                    for itemIndex in range(len(self.items)):
+                        util.draw_text(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1])
+                        if len(self.quantities) == len(self.items):
+                            text = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_WHITE)
+                            text_shadow = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_SHADOW)
+                            self.surface.blit(text_shadow, (self.width - text.get_width() - 4+2, itemIndex*16+yoffset+2))
+                            self.surface.blit(text, (self.width - text.get_width() - 4, itemIndex*16+yoffset))
                 SCREEN.blit(self.surface, (self.x, self.y))
         else:
             GAME.controlsText = game_constants.TEXT_ONMAP
@@ -190,6 +190,8 @@ class WindowSelectable(Window):
     def destroy(self):
         if self in GAME.windows:
             GAME.windows.remove(self)
+        if self.descriptionWindow in GAME.windows and self.descriptionWindow != None:
+            GAME.windows.remove(self.descriptionWindow)
         if self.parent == None:
             GAME.player.active = True
         self.visible = False
@@ -201,7 +203,6 @@ class WindowSelectable(Window):
             self.quantities = self.bquantity.execute()
         else:
             self.quantities = []
-
 class Entity:
     def __init__(self, x, y, sprite):
         self.x = x
@@ -217,7 +218,7 @@ class Creature(Entity):
         for obj in GAME.creatures:
             if (obj.x == self.x + dx and obj.y == self.y + dy):
                 return
-        if GAME.map[self.x + dx][self.y + dy].passable:
+        if True:#GAME.map[self.x + dx][self.y + dy].passable:
             self.x += dx
             self.y += dy
     def isEnemy(self, target):
@@ -238,17 +239,17 @@ class Creature(Entity):
         for action in self.actionDeath:
             action.execute()
 class Player(Creature):
-    def __init__(self, x, y, sprite, modifiers, status, actionMove, actionStarve, actionAttack, actionDeath, actionTakeDamage, actionTurn):
+    def __init__(self, x, y, sprite, stats, equipment, modifiers, status, actionMove, actionStarve, actionAttack, actionDeath, actionTakeDamage, actionTurn):
         super().__init__(x, y, sprite)
         self.inventory = []
         self.name = 'Player'
         self.tag = 'human'
         self.xp = 0
-        self.capacity = 100
-        self.equipment = [None for i in range(8)]
-        self.baseStats = [100 for i in range(14)]
+        self.equipment = equipment
+        self.baseStats = stats
         self.stats = self.baseStats
         self.hp = self.stats[0]
+        self.mana = self.stats[1]
         self.hunger = 100
         self.damageStat = 10 # PLACEHOLDER
         self.active = True
@@ -294,7 +295,6 @@ class Player(Creature):
     def onStarve(self):
         for action in self.actionStarve:
             action.execute()
-
 class Monster(Creature):
     def __init__(self, x, y, sprite, name, maxHp, drops, actionTurn, actionMove, actionAttack, actionTakeDamage, actionDeath):
         super().__init__(x, y, sprite)
@@ -315,26 +315,27 @@ class Monster(Creature):
                 self.x += 1
                 self.y += 1
                 self.antistuck()
-
 class Item(Entity):
-    def __init__(self, x, y, sprite, name, color, size):
+    def __init__(self, x, y, sprite, name, color, size, description):
         super().__init__(x, y, sprite)
         self.name = name
         self.size = size
         self.color = color
+        self.description = description
 class Equipment(Item):
-    def __init__(self, x, y, sprite, name, color, size, slot, actionEquipment):
-        super().__init__(x, y, sprite, name, color, size)
+    def __init__(self, x, y, sprite, name, color, size, description, slot, actionEquipment, requirements = []):
+        super().__init__(x, y, sprite, name, color, size, description)
         self.slot = slot
         self.itemType = 'equipment'
         self.actionEquipment = actionEquipment(self)
+        self.requirements = [requirement(self) for requirement in requirements]
     def equip(self):
         self.actionEquipment.onEquip()
     def unequip(self):
         self.actionEquipment.onUnequip()
 class Consumable(Item):
-    def __init__(self, x, y, sprite, name, color, size, onUse, useCondition = [], charges = 1, target = 'self'):
-        super().__init__(x, y, sprite, name, color, size)
+    def __init__(self, x, y, sprite, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'self'):
+        super().__init__(x, y, sprite, name, color, size, description)
         self.onUse = onUse
         self.useCondition = useCondition
         self.charges = charges
@@ -355,8 +356,8 @@ class Consumable(Item):
     def gotUsed(self):
         return self.used
 class ConsumableMap(Consumable):
-    def __init__(self, x, y, sprite, name, color, size, onUse, initialTarget, maxRange, targetCondition = [], useCondition = [], charges = 1):
-        super().__init__(x, y, sprite, name, color, size, onUse, useCondition = [], charges = 1, target = 'map')
+    def __init__(self, x, y, sprite, name, color, size, description, onUse, initialTarget, maxRange, targetCondition = [], useCondition = [], charges = 1):
+        super().__init__(x, y, sprite, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'map')
         self.initialTarget = initialTarget(self)
         self.maxRange = maxRange
         self.conditions = targetCondition
@@ -372,7 +373,6 @@ class ConsumableMap(Consumable):
             action.execute(x, y)
         if self.used:
             GAME.player.inventory.remove(self)
-
 class Component:
     def __init__(self, parent, priority = 0):
         self.parent = parent

@@ -6,8 +6,8 @@ WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720
 
 POPUP_WIDTH = 400
-POPUP_OFFSET_X = 4
-POPUP_OFFSET_Y = 4
+POPUP_OFFSET_X = 12
+POPUP_OFFSET_Y = 10
 
 COLOR_BLACK = (0, 0, 0)
 COLOR_LIGHTGRAY = (200, 200, 200)
@@ -20,6 +20,7 @@ COLOR_LIGHTRED = (255, 100, 100)
 COLOR_DARKRED = (160, 10, 10)
 COLOR_GREEN = (0, 150, 0)
 COLOR_YELLOW = (210, 210, 0)
+COLOR_CYAN = (0, 100, 255)
 
 COLOR_HEAL = (0, 200, 0)
 COLOR_VENOM = (100, 10, 50)
@@ -39,6 +40,10 @@ DAMAGEPOPUP_MAXTIME = 50
 SPRITE_PLAYER = pygame.image.load('resources/player.png')
 SPRITE_ENEMY_SLIME = pygame.image.load('resources/enemy_slime.png')
 SPRITE_TITLE = pygame.image.load('resources/title.png')
+SPRITE_DESCRIPTIONWINDOW = pygame.image.load('resources/descriptionwindow.png')
+SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
+SPRITE_STATUS = pygame.image.load('resources/status.png')
+SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
 
 MAP_WIDTH = [60]
 MAP_HEIGHT = [50]
@@ -51,6 +56,7 @@ CAMERA_HEIGHT = 20
 LIGHT_RADIUS = 8
 
 FONT_PERFECTDOS = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 16)
+FONT_PERFECTDOS_MEDIUM = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 20)
 FONT_PERFECTDOS_LARGE = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 32)
 
 LOG_MAX_LENGTH = 4
@@ -72,3 +78,4 @@ TEXT_ONINVENTORY = [('Arrows:', 'move cursor'), ('U:', 'use/equip'), ('C:', 'can
 TEXT_ONPOPUP = [('Arrows:', 'move cursor'), ('S:', 'select')]
 TEXT_ONSEARCH = [('Arrows:', 'move cursor'), ('S:', 'grab'), ('C:', 'cancel')]
 TEXT_ONSTATUS = [('Arrows:', 'move cursor'), ('C:', 'cancel')]
+TEXT_ONEQUIPMENT = []
