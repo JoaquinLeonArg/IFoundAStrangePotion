@@ -35,11 +35,12 @@ def game_init():
     util.SCREEN = SCREEN
 def game_loop():
     while True:
-        CLOCK.tick(120)
+        CLOCK.tick(0)
         if STATE == 0:
             draw_menu()
             menu_input()
         elif STATE == 9:
+            print(GAME.windows)
             GAME.action = 'none'
             game_input()
             if GAME.action != 'none':
@@ -58,62 +59,74 @@ def game_input():
             if event.key == pygame.K_ESCAPE:
                 pygame.quit()
                 sys.exit()
-            GAME.player.input(event.key)
-            util.map_light_update(GAME.light_map)
+            elif len(GAME.visualactiveeffects) == 0:
+                GAME.player.input(event.key)
+                GAME.rd_map = True
+                GAME.rd_sta = True
 
-            if event.key == game_constants.KEY_INVENTORY:
-                if GAME.windows == [] and len(GAME.player.inventory) > 0:
-                    GAME.windows.append(game_content.Window_PlayerInventory())
-                    GAME.controlsText = game_constants.TEXT_ONINVENTORY
-            if event.key == game_constants.KEY_SEARCH:
-                if GAME.windows == [] and len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
-                    GAME.windows.append(game_content.Window_SearchInventory())
-                    GAME.controlsText = game_constants.TEXT_ONSEARCH
-            if event.key == game_constants.KEY_STATUS:
-                if GAME.windows == []:
-                    GAME.windows.append(game_content.Window_Status())
-                    GAME.controlsText = game_constants.TEXT_ONSTATUS
-            if event.key == game_constants.KEY_EQUIPMENT:
-                if GAME.windows == []:
-                    GAME.windows.append(game_content.Window_Equipment())
-                    GAME.controlsText = game_constants.TEXT_ONEQUIPMENT
+                if event.key == game_constants.KEY_INVENTORY:
+                    if GAME.windows == [] and len(GAME.player.inventory) > 0:
+                        GAME.windows.append(game_content.Window_PlayerInventory())
+                        GAME.controlsText = game_constants.TEXT_ONINVENTORY
+                        GAME.rd_win = True
+                if event.key == game_constants.KEY_SEARCH:
+                    if GAME.windows == [] and len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
+                        GAME.windows.append(game_content.Window_SearchInventory())
+                        GAME.controlsText = game_constants.TEXT_ONSEARCH
+                        GAME.rd_win = True
+                if event.key == game_constants.KEY_STATUS:
+                    if GAME.windows == []:
+                        GAME.windows.append(game_content.Window_Status())
+                        GAME.controlsText = game_constants.TEXT_ONSTATUS
+                        GAME.rd_win = True
+                if event.key == game_constants.KEY_EQUIPMENT:
+                    if GAME.windows == []:
+                        GAME.windows.append(game_content.Window_Equipment())
+                        GAME.controlsText = game_constants.TEXT_ONEQUIPMENT
+                        GAME.rd_win = True
 
-            if event.key == pygame.K_UP:
-                for window in GAME.windows:
-                    if window.active:
-                        window.input('up')
-                        return
-            if event.key == pygame.K_DOWN:
-                for window in GAME.windows:
-                    if window.active:
-                        window.input('down')
-                        return
-            if event.key == pygame.K_LEFT:
-                for window in GAME.windows:
-                    if window.active:
-                        window.input('left')
-                        return
-            if event.key == pygame.K_RIGHT:
-                for window in GAME.windows:
-                    if window.active:
-                        window.input('right')
-                        return
-            if event.key == game_constants.KEY_USE:
-                for window in GAME.windows:
-                    if window.active:
-                        window.input('use')
-                        return
-            if event.key == game_constants.KEY_CANCEL:
-                for window in GAME.windows:
-                    if window.active:
-                        window.input('cancel')
-                        return
-            if event.key == game_constants.KEY_LOG:
-                GAME.draw_log = True
-                if GAME.long_log:
-                    GAME.long_log = False
-                else:
-                    GAME.long_log = True
+                if event.key == pygame.K_UP:
+                    for window in GAME.windows:
+                        if window.active:
+                            window.input('up')
+                            GAME.rd_win = True
+                            return
+                if event.key == pygame.K_DOWN:
+                    for window in GAME.windows:
+                        if window.active:
+                            window.input('down')
+                            GAME.rd_win = True
+                            return
+                if event.key == pygame.K_LEFT:
+                    for window in GAME.windows:
+                        if window.active:
+                            window.input('left')
+                            GAME.rd_win = True
+                            return
+                if event.key == pygame.K_RIGHT:
+                    for window in GAME.windows:
+                        if window.active:
+                            window.input('right')
+                            GAME.rd_win = True
+                            return
+                if event.key == game_constants.KEY_USE:
+                    for window in GAME.windows:
+                        if window.active:
+                            window.input('use')
+                            GAME.rd_win = True
+                            return
+                if event.key == game_constants.KEY_CANCEL:
+                    for window in GAME.windows:
+                        if window.active:
+                            window.input('cancel')
+                            GAME.rd_win = True
+                            return
+                if event.key == game_constants.KEY_LOG:
+                    GAME.rd_log = True
+                    if GAME.long_log:
+                        GAME.long_log = False
+                    else:
+                        GAME.long_log = True
 def menu_input():
     global STATE
     global GAME
@@ -157,39 +170,33 @@ def generateMap():
 
 # DRAW
 def draw_game():
-    GAME.surface_log.fill(game_constants.COLOR_COLORKEY)
-    GAME.surface_effects.fill(game_constants.COLOR_COLORKEY)
-    GAME.surface_log_bg.fill(game_constants.COLOR_COLORKEY)
-    GAME.surface_status.fill(game_constants.COLOR_BLACK)
-    if GAME.draw_log:
-        if GAME.long_log:
-            height = min(game_constants.LOG_MAX_LENGTH_LONG*18 + 8, len(GAME.log)*18 + 8)
-        else:
-            height = min(game_constants.LOG_MAX_LENGTH*18 + 8, len(GAME.log)*18 + 8)
-        GAME.surface_log_bg.fill(game_constants.COLOR_DARKESTGRAY, pygame.Rect(0, game_constants.WINDOW_HEIGHT - height, game_constants.LOG_WIDTH, height))
-    draw_map()
-    draw_log()
-    draw_status()
-    SCREEN.blit(GAME.surface_map, (0, 0))
-    SCREEN.blit(GAME.surface_effects, (0, 0))
-    SCREEN.blit(GAME.surface_log_bg, (0, 0))
-    SCREEN.blit(GAME.surface_log, (0, 0))
-    SCREEN.blit(GAME.surface_status, (game_constants.LOG_WIDTH + 4, game_constants.CAMERA_HEIGHT*32))
-    for effect in GAME.visualeffects:
-        effect.execute()
-        if util.isinscreen(effect.x, effect.y):
-            effect.draw()
-    for window in GAME.windows:
-        if window.visible:
-            window.draw()
+    if GAME.rd_log: # CHECK IF SURFACE_LOG NEEDS TO BE REDRAWN
+        draw_log()
+        GAME.rd_log = False
+    if GAME.rd_sta: # CHECK IF SURFACE_STATUS NEEDS TO BE REDRAWN
+        draw_status()
+        GAME.rd_sta = False
+    if GAME.rd_map: # CHECK IF SURFACE_LOG NEEDS TO BE REDRAWN
+        draw_map()
+        GAME.rd_map = False
+    if GAME.rd_win: # CHECK IF SURFACE_WINDOWS NEEDS TO BE REDRAWN
+        draw_windows()
+        GAME.rd_win = False
 
-    if GAME.draw_map:
-        GAME.draw_map = False
+    # BLIT ALL SURFACES INTO THE MAIN SURFACE
+    for surface in [GAME.surface_map, GAME.surface_effects, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 0)
+        SCREEN.blit(surface, (0, 0))
+    GAME.update_rects.append(SCREEN.blit(GAME.surface_log, (0, game_constants.CAMERA_HEIGHT*32)))
+    GAME.update_rects.append(SCREEN.blit(GAME.surface_status, (game_constants.LOG_WIDTH + 4, game_constants.CAMERA_HEIGHT*32))) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
+    draw_effects()
 
-    #DEBUG
-    util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 10, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK)
-    util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 28, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK)
-    pygame.display.flip()
+    # FOR DEBUG PURPOSES
+    GAME.update_rects.append(util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 10, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+    GAME.update_rects.append(util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 28, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+
+    pygame.display.update(GAME.update_rects) # DRAW ALL THE SECTIONS ON THE SCREEN THAT UPDATED ON THIS CYCLE
+    GAME.update_rects = [] # CLEAR THE LIST OF SECTIONS TO REDRAW
+
 def draw_menu():
     SCREEN.blit(game_constants.SPRITE_TITLE.convert(), (0, 0))
     texts = [game_constants.FONT_PERFECTDOS_LARGE.render('Start game', False, game_constants.COLOR_WHITE),
@@ -204,34 +211,31 @@ def draw_menu():
 #def draw_charselect():
 
 def draw_map():
-    if GAME.draw_map == True:
-        GAME.surface_map.fill(game_constants.COLOR_BLACK)
-        for x in range(0, game_constants.CAMERA_WIDTH):
-            for y in range(0, game_constants.CAMERA_HEIGHT):
-                if True:#libtcodpy.map_is_in_fov(GAME.light_map, GAME.camera.x + x, GAME.camera.y + y):
-                    GAME.surface_map.blit(GAME.map[GAME.camera.x + x][GAME.camera.y + y].sprite, (x*32, y*32))
-                    GAME.map[GAME.camera.x + x][GAME.camera.y + y].discovered = True
-                elif GAME.map[GAME.camera.x + x][GAME.camera.y + y].discovered == True:
-                    GAME.surface_map.blit(GAME.map[GAME.camera.x + x][GAME.camera.y + y].sprite_shadow, (x*32, y*32))
-        pygame.draw.rect(GAME.surface_map, game_constants.COLOR_BORDER, pygame.Rect(game_constants.BORDER_THICKNESS, game_constants.BORDER_THICKNESS, game_constants.CAMERA_WIDTH*32-game_constants.BORDER_THICKNESS*2, game_constants.CAMERA_HEIGHT*32-game_constants.BORDER_THICKNESS*2), game_constants.BORDER_THICKNESS*2)
-        for creature in GAME.creatures:
-            if libtcodpy.map_is_in_fov(GAME.light_map, creature.x, creature.y):
-                creature.draw()
-        for entity in GAME.entities:
-            if libtcodpy.map_is_in_fov(GAME.light_map, entity.x, entity.y):
-                entity.draw()
-        for item in GAME.items:
-            if libtcodpy.map_is_in_fov(GAME.light_map, item.x, item.y):
-                item.draw()
+    GAME.update_rects.append(GAME.surface_map.fill(game_constants.COLOR_BLACK))
+    for x in range(0, game_constants.CAMERA_WIDTH):
+        for y in range(0, game_constants.CAMERA_HEIGHT):
+            if libtcodpy.map_is_in_fov(GAME.light_map, GAME.camera.x + x, GAME.camera.y + y):
+                GAME.surface_map.blit(GAME.map[GAME.camera.x + x][GAME.camera.y + y].sprite, (x*32, y*32))
+                GAME.map[GAME.camera.x + x][GAME.camera.y + y].discovered = True
+            elif GAME.map[GAME.camera.x + x][GAME.camera.y + y].discovered == True:
+                GAME.surface_map.blit(GAME.map[GAME.camera.x + x][GAME.camera.y + y].sprite_shadow, (x*32, y*32))
+    pygame.draw.rect(GAME.surface_map, game_constants.COLOR_BORDER, pygame.Rect(game_constants.BORDER_THICKNESS, game_constants.BORDER_THICKNESS, game_constants.CAMERA_WIDTH*32-game_constants.BORDER_THICKNESS*2, game_constants.CAMERA_HEIGHT*32-game_constants.BORDER_THICKNESS*2), game_constants.BORDER_THICKNESS*2)
+    for creature in GAME.creatures:
+        if libtcodpy.map_is_in_fov(GAME.light_map, creature.x, creature.y):
+            creature.draw()
+    for entity in GAME.entities:
+        if libtcodpy.map_is_in_fov(GAME.light_map, entity.x, entity.y):
+            entity.draw()
+    for item in GAME.items:
+        if libtcodpy.map_is_in_fov(GAME.light_map, item.x, item.y):
+            item.draw()
 def draw_log():
-    if GAME.draw_log == True:
-        if GAME.long_log:
-            messages = game_constants.LOG_MAX_LENGTH_LONG
-        else:
-            messages = game_constants.LOG_MAX_LENGTH
-        for x in range(0, min(messages, len(GAME.log))):
-            util.draw_text_bg(GAME.surface_log, GAME.log[x][0], 10, game_constants.WINDOW_HEIGHT - x*18 - 20, game_constants.FONT_PERFECTDOS, GAME.log[x][1], game_constants.COLOR_DARKGRAY)
-        GAME.draw_log == False
+    messages = game_constants.LOG_MAX_LENGTH
+    height = min(game_constants.LOG_MAX_LENGTH*18 + 8, len(GAME.log)*18 + 8)
+
+    GAME.surface_log.fill(game_constants.COLOR_DARKESTGRAY)
+    for x in range(0, min(messages, len(GAME.log))):
+        util.draw_text_bg(GAME.surface_log, GAME.log[x][0], 10, x*14 + 4, game_constants.FONT_PERFECTDOS_SMALL, GAME.log[x][1], game_constants.COLOR_DARKGRAY)
 def draw_status():
     GAME.surface_status.blit(game_constants.SPRITE_STATUS, (0, 0))
 
@@ -253,16 +257,26 @@ def draw_status():
 
     GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((16, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (16, 56)) #DRAW FOOD
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(48, 56, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HUNGER, pygame.Rect(48, 56, 80*GAME.player.hunger/100, 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HUNGER, pygame.Rect(48, 56, 80*GAME.player.hunger/game_constants.MAX_HUNGER, 13))
 
     GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((32, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (138, 56)) #DRAW CARRY
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(168, 56, 80, 13))
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(168, 56, 80*GAME.player.currentWeight()/GAME.player.stats[10], 13))
 
     for textIndex in range(len(GAME.controlsText)): #DRAW CONTROLS
-        xOffset = (textIndex // game_constants.LOG_MAX_LENGTH-1) *200
-        util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][0], 620 + xOffset, (textIndex%game_constants.LOG_MAX_LENGTH-1)*16+24, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
-        util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][1], 700 + xOffset, (textIndex%game_constants.LOG_MAX_LENGTH-1)*16+24, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+        xOffset = (textIndex // 3) *200
+        util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][0], 500 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+        util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][1], 550 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+def draw_effects():
+    for effect in (GAME.visualeffects + GAME.visualactiveeffects): # UPDATE ALL VISUAL EFFECTS AND DRAW THEM
+        effect.execute()
+        if util.isinscreen(effect.x, effect.y):
+            GAME.update_rects.append(SCREEN.blit(effect.surface, (effect.x - GAME.camera.x*32, effect.y - GAME.camera.y*32)))
+def draw_windows():
+    GAME.update_rects.append(GAME.surface_windows.fill(game_constants.COLOR_COLORKEY))
+    for window in GAME.windows: # DRAW ALL VISIBLE IN-GAME WINDOWS
+        if window.visible:
+            window.draw()
 
 # MAP
 def map_init_noise(width, height):
@@ -322,28 +336,35 @@ def map_init_dungeon(width, height):
                 for x in range(10):
                     room += f[j*10 + x][i*10 + y]
             room_prefabs_10x10.append(room)
+    room_prefabs_5x5 = []
+    f = open('resources/map_prefabs/map_prefabs[5x5].csv', 'r').read().split('\n') # 10x10
+    for i in range(len(f[0]) // 5):
+        for j in range(len(f) // 5):
+            room = ''
+            for y in range(5):
+                for x in range(5):
+                    room += f[j*5 + x][i*5 + y]
+            room_prefabs_5x5.append(room)
 
 
     alg_array = [[0 for j in range(height)] for i in range(width)]
     rooms = []
     room_exits = []
     room_connections = []
-    rooms_size = [(10, 10)]
+    rooms_size = [(10, 10), (5, 5)]
 
     available_spots = [(x, y) for x in range(width) for y in range(height) if x > 6 and x < width - 12 and y > 6 and y < height - 12]
     for x in range(len(available_spots)):
         append = True
         i, j = available_spots.pop(random.randint(0, len(available_spots)-1))
-        for w, h in rooms_size:
-            newRoom = (i, j, w, h) #X, Y, W, H
-            for room in rooms:
-                if util.rectangle_intersects(newRoom, room):
-                    append = False
-                    break
-            if append == True:
-                rooms.append(newRoom)
-                break
-    print(rooms)
+        w, h = random.choice(rooms_size)
+        newRoom = (i, j, w, h) #X, Y, W, H
+        print(newRoom)
+        for room in rooms:
+            if util.rectangle_intersects(newRoom, room):
+                append = False
+        if append == True:
+            rooms.append(newRoom)
     for roomIndex in range(len(rooms))[0:]:
         room = rooms[roomIndex]
         if room[2] == 10 and room[3] == 10:
@@ -353,9 +374,15 @@ def map_init_dungeon(width, height):
                     alg_array[x + room[0]][y + room[1]] = int(room_layout[x*10 + y])
                     if int(room_layout[x*10 + y]) == 7:
                         room_exits.append((x + room[0], y + room[1], roomIndex))
+        elif room[2] == 5 and room[3] == 5:
+            room_layout = random.choice(room_prefabs_5x5)
+            for x in range(room[2]):
+                for y in range(room[3]):
+                    alg_array[x + room[0]][y + room[1]] = int(room_layout[x*5 + y])
+                    if int(room_layout[x*5 + y]) == 7:
+                        room_exits.append((x + room[0], y + room[1], roomIndex))
     for exit_init in room_exits:
         path = libtcodpy.path_new_using_function(width, height, path_cost, alg_array, 0)
-        print(exit_init)
         other_exits = sorted([exit_other for exit_other in room_exits if exit_other[2] != exit_init[2] and (exit_other[2], exit_init[2]) not in room_connections], key = lambda e: util.simpledistance((exit_init[0], exit_init[1]), (e[0], e[1])))
         if len(other_exits) > 0:
             exit_end = other_exits[0]

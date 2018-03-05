@@ -21,13 +21,15 @@ def rectangle_intersects(r1, r2):
 
 # TEXT
 def draw_text(surface, text, x, y, font, text_color):
-    surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+2, y+2))
-    surface.blit(font.render(text, False, text_color), (x, y))
+    rect1 = surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+2, y+2))
+    rect2 = surface.blit(font.render(text, False, text_color), (x, y))
+    return rect1, rect2
 def draw_text_bg(surface, text, x, y, font, text_color, bg_color):
     text_surface = font.render(text, False, text_color)
-    pygame.draw.rect(surface, bg_color, pygame.Rect(x, y, text_surface.get_width(), text_surface.get_height()))
+    rect = pygame.draw.rect(surface, bg_color, pygame.Rect(x, y, text_surface.get_width(), text_surface.get_height()))
     surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+2, y+2))
     surface.blit(font.render(text, False, text_color), (x, y))
+    return rect
 
 def map_light_update(light_map):
     libtcodpy.map_compute_fov(light_map, GAME.player.x, GAME.player.y, game_constants.LIGHT_RADIUS, True, libtcodpy.FOV_DIAMOND)

@@ -45,8 +45,8 @@ SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
 SPRITE_STATUS = pygame.image.load('resources/status.png')
 SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
 
-MAP_WIDTH = [60]
-MAP_HEIGHT = [50]
+MAP_WIDTH = [150]
+MAP_HEIGHT = [150]
 
 BORDER_THICKNESS = 2
 
@@ -54,12 +54,14 @@ CAMERA_WIDTH = 40
 CAMERA_HEIGHT = 20
 
 LIGHT_RADIUS = 8
+MAX_HUNGER = 1000
 
 FONT_PERFECTDOS = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 16)
+FONT_PERFECTDOS_SMALL = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 14)
 FONT_PERFECTDOS_MEDIUM = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 20)
 FONT_PERFECTDOS_LARGE = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 32)
 
-LOG_MAX_LENGTH = 4
+LOG_MAX_LENGTH = 6
 LOG_MAX_LENGTH_LONG = 20
 LOG_WIDTH = 400
 
@@ -73,9 +75,9 @@ KEY_STATUS = pygame.K_t
 KEY_USE = pygame.K_s
 KEY_CANCEL = pygame.K_c
 
-TEXT_ONMAP = [('Arrows:', 'move'), ('I:', 'inventory'), ('F:', 'search'), ('E:', 'equipment'), ('Z:', 'stats'), ('L:', 'Short/Long log')]
-TEXT_ONINVENTORY = [('Arrows:', 'move cursor'), ('U:', 'use/equip'), ('C:', 'cancel')]
-TEXT_ONPOPUP = [('Arrows:', 'move cursor'), ('S:', 'select')]
-TEXT_ONSEARCH = [('Arrows:', 'move cursor'), ('S:', 'grab'), ('C:', 'cancel')]
-TEXT_ONSTATUS = [('Arrows:', 'move cursor'), ('C:', 'cancel')]
-TEXT_ONEQUIPMENT = []
+TEXT_ONMAP = [('I:', 'inventory'), ('E:', 'equipment'), ('F:', 'search'), ('T:', 'status'), ('Z', 'stats')]
+TEXT_ONINVENTORY = [('S:', 'select'), ('C:', 'go back')]
+TEXT_ONPOPUP = [('S:', 'select'), ('C:', 'go back')]
+TEXT_ONSEARCH = [('S:', 'grab'), ('C:', 'go back')]
+TEXT_ONSTATUS = [('C:', 'go back')]
+TEXT_ONEQUIPMENT = [('S:', 'select'), ('C:', 'go back')]

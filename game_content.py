@@ -26,7 +26,7 @@ class Window_SearchInventory(game_classes.WindowSelectable):
         super().__init__(None, 336, 'Found items', True, True, game_constants.SPRITE_ITEMSWINDOW, w_search_items, [w_arrowkeys_input, w_search_input, w_update_description], descriptionWindow = Window_Description, itemType = 0)
 class Window_Status(game_classes.WindowSelectable):
     def __init__(self):
-        super().__init__(None, 336, 'Status', True, True, game_constants.SPRITE_ITEMSWINDOW, w_status_items, [w_arrowkeys_input], w_status_quantities, itemType = 1)
+        super().__init__(None, 336, 'Status', True, True, game_constants.SPRITE_ITEMSWINDOW, w_status_items, [w_arrowkeys_input, w_status_input], w_status_quantities, itemType = 1)
 class Window_SelectTarget(game_classes.WindowSelectable):
     def __init__(self, parent, item):
         self.parent = parent
@@ -50,8 +50,9 @@ class Window_SelectTarget(game_classes.WindowSelectable):
                     if self.item.targetCondition(x, y) and util.simpledistance((GAME.player.x, GAME.player.y), (x, y)) <= self.item.maxRange:
                         self.surface.fill(game_constants.COLOR_GREEN, pygame.Rect((x - GAME.camera.x)*32, (y - GAME.camera.y)*32, 32, 32))
             self.surface.blit(self.image, ((self.x - GAME.camera.x)*32, (self.y - GAME.camera.y)*32))
-            SCREEN.blit(self.surface, (0, 0))
+            GAME.update_rects.append(GAME.surface_map.blit(self.surface, (0, 0)))
     def input(self, key):
+        GAME.rd_win = True
         if key == 'up':
             if util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y - 1)) <= self.item.maxRange:
                 self.y -= 1
@@ -83,12 +84,14 @@ class Window_Description(game_classes.Window):
         self.item = None
         self.visible = True
         self.active = False
+        self.redraw = True
         self.x = game_constants.BORDER_THICKNESS*2
         self.y = 300
         self.width = game_constants.POPUP_WIDTH
         self.height = game_constants.CAMERA_HEIGHT*32 - self.y - game_constants.BORDER_THICKNESS*2
         self.surface = pygame.Surface((self.width, self.height))
         self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
+        self.descriptionWindow = None
         GAME.windows.append(self)
     def draw(self):
         if self.visible:
@@ -115,7 +118,7 @@ class Window_Description(game_classes.Window):
                         text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
                         self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
                         xoffset += text.get_width()
-            SCREEN.blit(self.surface, (self.x, self.y))
+            GAME.update_rects.append(GAME.surface_windows.blit(self.surface, (self.x, self.y)))
 class Window_Equipment(game_classes.WindowSelectable):
     def __init__(self):
         super().__init__(None, 336, 'Equipment', True, True, game_constants.SPRITE_ITEMSWINDOW, w_equipment_items, [w_arrowkeys_input, w_equipment_input, w_update_description], descriptionWindow = Window_Description, itemType = 0)
@@ -154,35 +157,50 @@ class w_inventory_input(game_classes.Component):
             GAME.controlsText = game_constants.TEXT_ONMAP
 class w_popupinventorye_items(game_classes.Component):
     def execute(self):
-        return [('Equip', game_constants.COLOR_WHITE), ('Throw', game_constants.COLOR_WHITE), ('Cancel', game_constants.COLOR_WHITE)]
+        return [('Equip', game_constants.COLOR_WHITE), ('Drop', game_constants.COLOR_WHITE), ('Cancel', game_constants.COLOR_WHITE)]
 class w_popupinventorye_input(game_classes.Component):
     def execute(self, key):
         if key == 'use':
             if self.parent.index == 0: #EQUIP
-                if GAME.player.equipment[self.parent.parent.items[self.parent.parent.index].slot] != None:
-                    GAME.player.inventory.append(GAME.player.equipment[self.parent.parent.items[self.parent.parent.index].slot])
-                GAME.player.equipment[self.parent.parent.items[self.parent.parent.index].slot] = self.parent.parent.items[self.parent.parent.index]
-                GAME.player.equipment.pop(self.parent.parent.items[self.parent.parent.index])
+                itemToEquip = self.parent.parent.items[self.parent.parent.index]
+                if GAME.player.equipment[GAME.player.inventory[self.parent.parent.index].slot] != None:
+                    GAME.player.equipment[GAME.player.inventory[self.parent.parent.index].slot].unequip()
+                    GAME.player.inventory.append(GAME.player.equipment[GAME.player.inventory[self.parent.parent.index].slot])
+                GAME.player.equipment[GAME.player.inventory[self.parent.parent.index].slot] = itemToEquip
+                itemToEquip.equip()
+                GAME.player.inventory.remove(itemToEquip)
                 self.parent.parent.getItems()
-                self.parent.parent.active = True
                 self.parent.destroy()
+                if self.parent.parent.index > 0:
+                    self.parent.parent.index -= 1
+                GAME.action = 'item'
+                GAME.controlsText = game_constants.TEXT_ONINVENTORY
+                self.parent.parent.active = True
+                GAME.player.recalculateStats()
             if self.parent.index == 1: #THROW
                 item = GAME.player.inventory.pop(self.parent.parent.index)
                 item.x = GAME.player.x
                 item.y = GAME.player.y
                 GAME.items.append(item)
                 self.parent.parent.getItems()
+                if self.parent.parent.index > 0:
+                    self.parent.parent.index -= 1
                 self.parent.parent.active = True
                 self.parent.destroy()
             if self.parent.index == 2: #CANCEL
                 self.parent.parent.active = True
                 self.parent.destroy()
+            if len(self.parent.parent.items) > 0:
+                self.parent.parent.descriptionWindow.item = self.parent.parent.items[self.parent.parent.index]
+        if key == 'cancel':
+            self.parent.parent.active = True
+            GAME.controlsText = game_constants.TEXT_ONINVENTORY
 class w_popupinventoryc_items(game_classes.Component):
     def execute(self):
         colorUse = game_constants.COLOR_GRAY
         if GAME.player.inventory[self.parent.parent.index].condition():
                 colorUse = game_constants.COLOR_WHITE
-        return [('Use', colorUse), ('Throw', game_constants.COLOR_WHITE), ('Cancel', game_constants.COLOR_WHITE)]
+        return [('Use', colorUse), ('Drop', game_constants.COLOR_WHITE), ('Cancel', game_constants.COLOR_WHITE)]
 class w_popupinventoryc_input(game_classes.Component):
     def execute(self, key):
         if key == 'use':
@@ -207,6 +225,8 @@ class w_popupinventoryc_input(game_classes.Component):
                 item.y = GAME.player.y
                 GAME.items.append(item)
                 self.parent.parent.getItems()
+                if self.parent.parent.index > 0:
+                    self.parent.parent.index -= 1
                 self.parent.parent.active = True
                 GAME.controlsText = game_constants.TEXT_ONINVENTORY
                 self.parent.destroy()
@@ -214,6 +234,8 @@ class w_popupinventoryc_input(game_classes.Component):
                 self.parent.parent.active = True
                 GAME.controlsText = game_constants.TEXT_ONINVENTORY
                 self.parent.destroy()
+            if len(self.parent.parent.items) > 0:
+                self.parent.parent.descriptionWindow.item = self.parent.parent.items[self.parent.parent.index]
         if key == 'cancel':
             self.parent.parent.active = True
             GAME.controlsText = game_constants.TEXT_ONINVENTORY
@@ -241,6 +263,11 @@ class w_status_items(game_classes.Component):
         for status in GAME.player.status:
             status.execute()
         return [(status.name, status.color) for status in GAME.player.status]
+class w_status_input(game_classes.Component):
+    def execute(self, key):
+        if key == 'cancel':
+            GAME.player.active = True
+            GAME.controlsText = game_constants.TEXT_ONMAP
 class w_status_quantities(game_classes.Component):
     def execute(self):
         return [status.turns for status in GAME.player.status]
@@ -321,7 +348,7 @@ class b_play_death(game_classes.Component):
         sys.exit()
 class b_play_starvedamage(game_classes.Component):
     def execute(self):
-        self.parent.damage(int(self.parent.stats[0]*0.1), 'true', 'none')
+        self.parent.damage(int(self.parent.stats[0]*0.01), 'true', 'none')
 class b_play_hunger(game_classes.Component):
     def execute(self):
         if self.parent.hunger > 0:
@@ -335,9 +362,9 @@ class d_play_health(game_classes.Component):
             self.parent.stats[2] *= 0.5
 class d_play_hunger(game_classes.Component):
     def execute(self):
-        if self.parent.hunger < 50:
+        if self.parent.hunger < game_constants.MAX_HUNGER*0.5:
             self.parent.stats[0] *= 0.8
-        elif self.parent.hunger < 30:
+        elif self.parent.hunger < game_constants.MAX_HUNGER*0.3:
             self.parent.stats[0] *= 0.4
         self.parent.stats[0] = int(self.parent.stats[0])
 
@@ -371,7 +398,6 @@ class b_crea_takedamage(game_classes.Component):
         self.parent.hp -= amount
         if self.parent.hp <= 0:
             self.parent.die()
-        GAME.visualeffects.append(v_damagepopup(self.parent.x*32, self.parent.y*32 - 12, amount, game_constants.COLOR_WHITE))
 class b_crea_simpledeath(game_classes.Component):
     def execute(self):
         for drop in self.parent.drops:
@@ -466,8 +492,8 @@ class e_eat(game_classes.Component):
         super().__init__(parent)
         self.amount = amount
     def execute(self):
-        if self.parent.hunger + self.amount > 100:
-            value = 100 - self.parent.hunger
+        if self.parent.hunger + self.amount > game_constants.MAX_HUNGER:
+            value = game_constants.MAX_HUNGER - self.parent.hunger
             GAME.addLogMessage(self.parent.name + ' is full!', game_constants.COLOR_HEAL)
         else:
             value = self.amount
@@ -483,6 +509,7 @@ class e_createbomb_l():
         self.radius = radius
         self.damage = damage
     def execute(self, x, y):
+        GAME.visualactiveeffects.append(va_objecttravel(GAME.player.x*32, GAME.player.y*32, x*32, y*32, 100, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)))
         GAME.entities.append(n_bomb(x, y, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), self.turns, self.radius, self.damage))
         GAME.addLogMessage('The bomb will explode in ' + str(self.turns) + ' turns!', game_constants.COLOR_ALLY)
 class e_damage_l():
@@ -501,7 +528,7 @@ class c_playnotfullhealth(game_classes.Component):
         return GAME.player.hp < GAME.player.stats[0]
 class c_playnotfullhunger(game_classes.Component):
     def execute(self):
-        return GAME.player.hunger < 100
+        return GAME.player.hunger < game_constants.MAX_HUNGER
 class c_initonplayer(game_classes.Component):
     def execute(self):
         return (GAME.player.x, GAME.player.y)
@@ -546,29 +573,23 @@ class v_square_fadeout(game_classes.VisualEffect):
         self.surface.set_alpha(255*(game_constants.EFFECTS_MAXTIME - self.time)/game_constants.EFFECTS_MAXTIME)
         if self.time > game_constants.EFFECTS_MAXTIME:
             GAME.visualeffects.remove(self)
-class v_damagepopup(game_classes.VisualEffect):
-    def __init__(self, x, y, damage, color, critical = False):
-        if critical:
-            text = game_constants.FONT_PERFECTDOS_LARGE.render(str(damage), False, game_constants.COLOR_CRITICAL)
-        else:
-            text = game_constants.FONT_PERFECTDOS.render(str(damage), False, color)
-        width = text.get_width()
-        height = text.get_height()
-        super().__init__(x, y, width, height)
-        self.x +=  16 - width * 0.5
-        self.surface.fill(game_constants.COLOR_COLORKEY)
-        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface.blit(text, (0, 0))
-        self.xspeed = random.random()*2 - 1
-        self.yspeed = -0.6
+class va_objecttravel(game_classes.VisualEffect):
+    def __init__(self, ix, iy, fx, fy, travelTime, image):
+        self.x = ix
+        self.y = iy
+        self.width = image.get_width()
+        self.height = image.get_height()
+        self.xstep = (fx-ix)/travelTime
+        self.ystep = (fy-iy)/travelTime
+        self.surface = image
+        self.travelTime = travelTime
     def execute(self):
-        super().execute()
-        self.surface.set_alpha(255*(game_constants.EFFECTS_MAXTIME - self.time)/game_constants.EFFECTS_MAXTIME)
-        if self.time > game_constants.EFFECTS_MAXTIME:
-            GAME.visualeffects.remove(self)
-        self.yspeed += 0.05
-        self.x += self.xspeed
-        self.y += self.yspeed
+        if self.travelTime > 0:
+            self.x += self.xstep
+            self.y += self.ystep
+            self.travelTime -= 1
+        else:
+            GAME.visualactiveeffects.remove(self)
 
 # TILES
 class t_cave_wall(game_classes.Tile):
