@@ -35,20 +35,22 @@ def game_init():
     util.SCREEN = SCREEN
 def game_loop():
     while True:
-        CLOCK.tick(0)
         if STATE == 0:
             draw_menu()
             menu_input()
         elif STATE == 9:
-            print(GAME.windows)
             GAME.action = 'none'
             game_input()
+            for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
+                entity.update_frame()
             if GAME.action != 'none':
+                GAME.updateOrder()
                 GAME.creaturesExecuteTurn()
                 GAME.entitiesExecuteTurn()
-                GAME.draw_map = True
+                GAME.turn_counter += 1
             GAME.camera.update(GAME.player.x, GAME.player.y)
             draw_game()
+        CLOCK.tick()
 def game_input():
     events = pygame.event.get();
     for event in events:
@@ -63,6 +65,7 @@ def game_input():
                 GAME.player.input(event.key)
                 GAME.rd_map = True
                 GAME.rd_sta = True
+                GAME.surface_entities.fill(game_constants.COLOR_COLORKEY)
 
                 if event.key == game_constants.KEY_INVENTORY:
                     if GAME.windows == [] and len(GAME.player.inventory) > 0:
@@ -129,6 +132,7 @@ def game_input():
                         GAME.long_log = True
 def menu_input():
     global STATE
+    global MENU
     global GAME
     events = pygame.event.get();
     for event in events:
@@ -137,6 +141,7 @@ def menu_input():
             sys.exit()
         if STATE == 0:
             if event.type == pygame.KEYDOWN:
+                MENU.rd_opt = True
                 if event.key == pygame.K_UP:
                     MENU.option =  (MENU.option - 1) % 3
                     MENU.update = True
@@ -149,14 +154,13 @@ def menu_input():
                     if MENU.option == 0:
 
                         STATE = 9
-                        GAME.player = game_content.p_normal(25, 30)
+                        GAME.player = game_content.p_normal(game_constants.MAP_WIDTH[0]//2, game_constants.MAP_HEIGHT[0]//2)
+                        generateMap()
                         GAME.creatures.append(GAME.player)
 
                         # FOR TESTING PURPOSES:
-                        GAME.creatures += [game_content.m_slime(23, 26) for i in range(5)]
-                        GAME.player.inventory += [game_content.i_magichelmet(0, 0)]
+                        GAME.player.inventory += [game_content.i_magichelmet(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0)]
 
-                        generateMap()
                         GAME.light_map = map_light_init(GAME.map)
                         util.map_light_update(GAME.light_map)
                     return
@@ -165,11 +169,11 @@ def menu_input():
                     MENU.update = True
                     return
 
-def generateMap():
-    GAME.map = map_init_dungeon(game_constants.MAP_WIDTH[GAME.level], game_constants.MAP_HEIGHT[GAME.level])
 
 # DRAW
 def draw_game():
+    SCREEN.fill([255,255,255])
+
     if GAME.rd_log: # CHECK IF SURFACE_LOG NEEDS TO BE REDRAWN
         draw_log()
         GAME.rd_log = False
@@ -184,31 +188,20 @@ def draw_game():
         GAME.rd_win = False
 
     # BLIT ALL SURFACES INTO THE MAIN SURFACE
-    for surface in [GAME.surface_map, GAME.surface_effects, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 0)
+    for surface in [GAME.surface_map, GAME.surface_effects, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 0)
         SCREEN.blit(surface, (0, 0))
     GAME.update_rects.append(SCREEN.blit(GAME.surface_log, (0, game_constants.CAMERA_HEIGHT*32)))
     GAME.update_rects.append(SCREEN.blit(GAME.surface_status, (game_constants.LOG_WIDTH + 4, game_constants.CAMERA_HEIGHT*32))) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
-    draw_effects()
+    draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
+    draw_entities() # SAME AS EFFECTS
 
     # FOR DEBUG PURPOSES
     GAME.update_rects.append(util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 10, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
     GAME.update_rects.append(util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 28, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+    GAME.update_rects.append(util.draw_text_bg(SCREEN, 'TURN: ' + str(GAME.turn_counter), 10, 46, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
 
     pygame.display.update(GAME.update_rects) # DRAW ALL THE SECTIONS ON THE SCREEN THAT UPDATED ON THIS CYCLE
     GAME.update_rects = [] # CLEAR THE LIST OF SECTIONS TO REDRAW
-
-def draw_menu():
-    SCREEN.blit(game_constants.SPRITE_TITLE.convert(), (0, 0))
-    texts = [game_constants.FONT_PERFECTDOS_LARGE.render('Start game', False, game_constants.COLOR_WHITE),
-            game_constants.FONT_PERFECTDOS_LARGE.render('Options', False, game_constants.COLOR_WHITE),
-            game_constants.FONT_PERFECTDOS_LARGE.render('Exit', False, game_constants.COLOR_WHITE)]
-    pygame.draw.rect(SCREEN, game_constants.COLOR_DARKRED, pygame.Rect(game_constants.WINDOW_WIDTH/2 - 128,  game_constants.WINDOW_HEIGHT*3/4 + MENU.option*32, 256, 32))
-    for textIndex in range(len(texts)):
-        SCREEN.blit(texts[textIndex], (game_constants.WINDOW_WIDTH/2 - texts[textIndex].get_width()/2, game_constants.WINDOW_HEIGHT*3/4 + textIndex*32))
-    #DEBUG
-    util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 28, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK)
-    pygame.display.flip()
-#def draw_charselect():
 
 def draw_map():
     GAME.update_rects.append(GAME.surface_map.fill(game_constants.COLOR_BLACK))
@@ -220,6 +213,7 @@ def draw_map():
             elif GAME.map[GAME.camera.x + x][GAME.camera.y + y].discovered == True:
                 GAME.surface_map.blit(GAME.map[GAME.camera.x + x][GAME.camera.y + y].sprite_shadow, (x*32, y*32))
     pygame.draw.rect(GAME.surface_map, game_constants.COLOR_BORDER, pygame.Rect(game_constants.BORDER_THICKNESS, game_constants.BORDER_THICKNESS, game_constants.CAMERA_WIDTH*32-game_constants.BORDER_THICKNESS*2, game_constants.CAMERA_HEIGHT*32-game_constants.BORDER_THICKNESS*2), game_constants.BORDER_THICKNESS*2)
+def draw_entities():
     for creature in GAME.creatures:
         if libtcodpy.map_is_in_fov(GAME.light_map, creature.x, creature.y):
             creature.draw()
@@ -269,6 +263,7 @@ def draw_status():
         util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][1], 550 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
 def draw_effects():
     for effect in (GAME.visualeffects + GAME.visualactiveeffects): # UPDATE ALL VISUAL EFFECTS AND DRAW THEM
+        GAME.update_rects.append((effect.x - GAME.camera.x*32, effect.y - GAME.camera.y*32, effect.width, effect.height))
         effect.execute()
         if util.isinscreen(effect.x, effect.y):
             GAME.update_rects.append(SCREEN.blit(effect.surface, (effect.x - GAME.camera.x*32, effect.y - GAME.camera.y*32)))
@@ -278,7 +273,35 @@ def draw_windows():
         if window.visible:
             window.draw()
 
+
+def draw_menu():
+    if MENU.rd_img:
+        MENU.update_rects.append(MENU.surface_logo.blit(game_constants.SPRITE_TITLE, (0, 0)))
+        MENU.rd_img = False
+    if MENU.rd_opt:
+        MENU.update_rects.append(MENU.surface_options.fill(game_constants.COLOR_COLORKEY))
+        pygame.draw.rect(MENU.surface_options, game_constants.COLOR_DARKRED, pygame.Rect(game_constants.WINDOW_WIDTH/2 - 128,  game_constants.WINDOW_HEIGHT*3/4 + MENU.option*32, 256, 32))
+        for textIndex in range(len(MENU.optionsText)):
+            MENU.surface_options.blit(MENU.optionsText[textIndex], (game_constants.WINDOW_WIDTH/2 - MENU.optionsText[textIndex].get_width()/2, game_constants.WINDOW_HEIGHT*3/4 + textIndex*32))
+
+    for surface in [MENU.surface_logo, MENU.surface_options]: # DRAW ALL SURFACES AT (0, 0)
+        SCREEN.blit(surface, (0, 0))
+
+    # FOR DEBUG PURPOSES
+    MENU.update_rects.append(util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 28, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+
+    pygame.display.update(MENU.update_rects)
+    MENU.update_rects = []
+
+
+#def draw_charselect():
+
+
 # MAP
+def generateMap():
+    GAME.map, GAME.items, GAME.entities, GAME.creatures = map_init_dungeon(game_constants.MAP_WIDTH[GAME.level], game_constants.MAP_HEIGHT[GAME.level])
+
+
 def map_init_noise(width, height):
     map_gen = []
     noise = libtcodpy.noise_new(2)
@@ -345,21 +368,34 @@ def map_init_dungeon(width, height):
                 for x in range(5):
                     room += f[j*5 + x][i*5 + y]
             room_prefabs_5x5.append(room)
+    monsters_pool = [[game_content.m_slime], []]
 
 
     alg_array = [[0 for j in range(height)] for i in range(width)]
+    terrain = [[0 for j in range(height)] for i in range(width)]
+    items = []
+    entities = []
+    creatures = []
+
     rooms = []
     room_exits = []
     room_connections = []
     rooms_size = [(10, 10), (5, 5)]
 
+    rooms.append((width//2-3, height//2-3, 6, 6))
+    for x in range(width//2-3, width//2+3):
+        for y in range(height//2-3, height//2+3):
+            if y == height//2 and (x == width//2-3 or x == width//2+3):
+                alg_array[x][y] = 7
+                room_exits.append((x, y, -1))
+            else:
+                alg_array[x][y] = 2
     available_spots = [(x, y) for x in range(width) for y in range(height) if x > 6 and x < width - 12 and y > 6 and y < height - 12]
     for x in range(len(available_spots)):
         append = True
         i, j = available_spots.pop(random.randint(0, len(available_spots)-1))
         w, h = random.choice(rooms_size)
         newRoom = (i, j, w, h) #X, Y, W, H
-        print(newRoom)
         for room in rooms:
             if util.rectangle_intersects(newRoom, room):
                 append = False
@@ -391,18 +427,23 @@ def map_init_dungeon(width, height):
         room_connections.append((exit_init[2], exit_end[2]))
         room_connections.append((exit_end[2], exit_init[2]))
         libtcodpy.path_compute(path, exit_init[0], exit_init[1], exit_end[0], exit_end[1])
-        for i in range(libtcodpy.path_size(path)):
+        for i in range(libtcodpy.path_size(path)-1):
             x, y = libtcodpy.path_get(path, i)
             alg_array[x][y] = 3
 
     for x in range(len(alg_array)):
         for y in range(len(alg_array[x])):
-            if alg_array[x][y] == 0 or alg_array[x][y] == 1:
-                alg_array[x][y] = game_content.t_cave_wall(x, y)
+            if alg_array[x][y] in [0, 1]:
+                terrain[x][y] = game_content.t_cave_wall(x, y)
             else:
-                alg_array[x][y] = game_content.t_cave_floor(x, y)
-    return alg_array
-
+                terrain[x][y] = game_content.t_cave_floor(x, y)
+            if alg_array[x][y] == 4:
+                creatures.append(random.choice(monsters_pool[GAME.level])(x, y))
+            if alg_array[x][y] == 7:
+                entities.append(game_content.n_door(x, y, game_content.SPRITESHEET_ENTITIES.image_at((0, 32, 32, 32)), game_content.SPRITESHEET_ENTITIES.image_at((32, 32, 32, 32), colorkey = game_constants.COLOR_COLORKEY)))
+                terrain[x][y].passable = False
+                terrain[x][y].transparent = False
+    return terrain, items, entities, creatures
 def map_set_borders(map_array, width, height):
     for x in range(0, width):
         map_array[x][0] = game_content.t_unbreakable_wall(x, 0)
@@ -429,7 +470,6 @@ def map_light_init(map_array):
         for y in range(0, height):
             libtcodpy.map_set_properties(light_map, x, y, map_array[x][y].transparent, map_array[x][y].passable)
     return light_map
-
 
 
 # EXECUTION

@@ -13,6 +13,8 @@ SPRITESHEET_TILES = game_classes.Spritesheet('resources/tiles.png')
 SPRITESHEET_CONSUMABLES = game_classes.Spritesheet('resources/consumables.png')
 SPRITESHEET_ENTITIES = game_classes.Spritesheet('resources/entities.png')
 SPRITESHEET_ICONS = game_classes.Spritesheet('resources/icons.png')
+SPRITESHEET_MONSTERS = game_classes.Spritesheet('resources/graphics/monsters_animated.png')
+SPRITESHEET_EQUIPMENT_HEAD = game_classes.Spritesheet('resources/graphics/equipment_head_animated.png')
 
 # WINDOWS
 class Window_PlayerInventory(game_classes.WindowSelectable):
@@ -97,7 +99,7 @@ class Window_Description(game_classes.Window):
         if self.visible:
             self.surface.blit(game_constants.SPRITE_DESCRIPTIONWINDOW, (0, 0))
             if self.itemType == 0:
-                if self.item.sprite != None:
+                if self.item.sprite_list != None:
                     self.surface.blit(pygame.transform.scale2x(self.item.sprite), (16, 16))
                 util.draw_text(self.surface, self.item.name, 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item.color)
                 util.draw_text(self.surface, self.item.itemType, 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
@@ -333,13 +335,22 @@ class w_popupequipment_input(game_classes.Component):
 # PLAYER BEHAVIORS
 class b_play_move(game_classes.Component):
     def execute(self, dx = 0, dy = 0):
+        for entity in GAME.entities:
+            if entity.x == self.parent.x + dx and entity.y == self.parent.y + dy and entity.tag == 'door_closed':
+                entity.tag = 'door_open'
+                entity.sprite_list = [entity.sprite_open]
+                GAME.map[entity.x][entity.y].passable = True
+                GAME.map[entity.x][entity.y].transparent = True
+                libtcodpy.map_set_properties(GAME.light_map, entity.x, entity.y, True, True)
+                util.map_light_update(GAME.light_map)
+                return
         if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
             if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
                 self.parent.x += dx
                 self.parent.y += dy
         else:
             for creature in GAME.creatures:
-                if (creature is not self and creature.x == self.parent.x + dx and creature.y == self.parent.y + dy):
+                if (creature is not self.parent and creature.x == self.parent.x + dx and creature.y == self.parent.y + dy):
                     self.parent.attack(creature)
                     break
 class b_play_death(game_classes.Component):
@@ -371,7 +382,6 @@ class d_play_hunger(game_classes.Component):
 # CREATURES BEHAVIOR
 class b_crea_simpleturn(game_classes.Component):
     def execute(self):
-        self.parent.antistuck()
         if util.distance(self.parent, GAME.player) == 1:
             self.parent.attack(GAME.player)
         else:
@@ -509,7 +519,7 @@ class e_createbomb_l():
         self.radius = radius
         self.damage = damage
     def execute(self, x, y):
-        GAME.visualactiveeffects.append(va_objecttravel(GAME.player.x*32, GAME.player.y*32, x*32, y*32, 100, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)))
+        GAME.visualactiveeffects.append(va_objecttravel(GAME.player.x*32, GAME.player.y*32, x*32, y*32, 100, [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)]))
         GAME.entities.append(n_bomb(x, y, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), self.turns, self.radius, self.damage))
         GAME.addLogMessage('The bomb will explode in ' + str(self.turns) + ' turns!', game_constants.COLOR_ALLY)
 class e_damage_l():
@@ -540,9 +550,15 @@ class c_creatureinlocation(game_classes.Component):
         return False
 
 # ENTITIES
+class n_door(game_classes.Entity):
+    def __init__(self, x, y, sprite_closed, sprite_open):
+        super().__init__(x, y, 'door_closed', [sprite_closed])
+        self.sprite_open = sprite_open
+    def execute_action(self):
+        pass
 class n_bomb(game_classes.Entity):
     def __init__(self, x, y, sprite, turns, radius, damage):
-        super().__init__(x, y, sprite)
+        super().__init__(x, y, 'impassable', [sprite])
         self.turns = turns
         self.radius = radius
         self.damage = damage
@@ -568,20 +584,24 @@ class v_square_fadeout(game_classes.VisualEffect):
     def __init__(self, x, y, color):
         super().__init__(x*32, y*32, 32, 32)
         pygame.draw.rect(self.surface, color, (0, 0, 32, 32))
+        self.maxtime = random.randint(15, 60)
     def execute(self):
         super().execute()
-        self.surface.set_alpha(255*(game_constants.EFFECTS_MAXTIME - self.time)/game_constants.EFFECTS_MAXTIME)
-        if self.time > game_constants.EFFECTS_MAXTIME:
+        self.surface.set_alpha(255*(self.maxtime - self.time)/self.maxtime)
+        if self.time > self.maxtime:
             GAME.visualeffects.remove(self)
 class va_objecttravel(game_classes.VisualEffect):
-    def __init__(self, ix, iy, fx, fy, travelTime, image):
+    def __init__(self, ix, iy, fx, fy, travelTime, images):
         self.x = ix
         self.y = iy
-        self.width = image.get_width()
-        self.height = image.get_height()
+        self.frame = 0
+        self.images = images
+        self.image = images[0]
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
         self.xstep = (fx-ix)/travelTime
         self.ystep = (fy-iy)/travelTime
-        self.surface = image
+        self.surface = self.image
         self.travelTime = travelTime
     def execute(self):
         if self.travelTime > 0:
@@ -611,7 +631,18 @@ class t_unbreakable_wall(game_classes.Tile):
 # MONSTERS
 class m_slime(game_classes.Monster):
     def __init__(self, x, y):
-        super().__init__(x, y, game_constants.SPRITE_ENEMY_SLIME, 'Slime', 10, [(i_minorhealpotion(0, 0), 0.8), (i_bomb(0, 0), 0.8), (i_meat(0, 0), 0.8), (i_throwablebomb(0, 0), 0.8)], [b_crea_simpleturn(self)], [b_crea_randommove(self)], [b_crea_simpleattack(self)], [b_crea_takedamage(self)], [b_crea_simpledeath(self)])
+        super().__init__(x = x,
+                        y = y,
+                        sprite_list = SPRITESHEET_MONSTERS.images_at([(i*32, 0, 32, 32)for i in range(4)], colorkey = -1),
+                        name = 'Slime',
+                        maxHp = 10,
+                        drops = [(i_minorhealpotion(0, 0), 0.8), (i_bomb(0, 0), 0.8), (i_meat(0, 0), 0.8), (i_throwablebomb(0, 0), 0.8)],
+                        actions = { 'turn': [b_crea_simpleturn(self)],
+                                    'move': [b_crea_randommove(self)],
+                                    'attack': [b_crea_simpleattack(self)],
+                                    'takeDamage': [b_crea_takedamage(self)],
+                                    'death': [b_crea_simpledeath(self)] })
+
 
 # SPECIAL ITEMS
 class i_null(game_classes.Item):
@@ -622,7 +653,7 @@ class i_null(game_classes.Item):
         self.y = 0
         self.description = []
         self.color = game_constants.COLOR_GRAY
-        self.sprite = None
+        self.sprite_list = None
 class i_equipnull(game_classes.Item):
     def __init__(self):
         self.itemType = 'equipment'
@@ -631,13 +662,13 @@ class i_equipnull(game_classes.Item):
         self.y = 0
         self.description = []
         self.color = game_constants.COLOR_GRAY
-        self.sprite = None
+        self.sprite_list = None
 # CONSUMABLES
 class i_minorhealpotion(game_classes.Consumable):
     def __init__(self, x, y):
         super().__init__(x, #X
                          y, #Y
-                         SPRITESHEET_CONSUMABLES.image_at((0, 0, 32, 32), game_constants.COLOR_COLORKEY), #SPRITE
+                         [SPRITESHEET_CONSUMABLES.image_at((0, 0, 32, 32), game_constants.COLOR_COLORKEY)], #SPRITE
                          'Minor heal potion', #NAME
                          game_constants.COLOR_WHITE, #COLOR
                          1, #WEIGHT
@@ -649,7 +680,7 @@ class i_bomb(game_classes.Consumable):
     def __init__(self, x, y):
         super().__init__(x, #X
                          y, #Y
-                         SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), #SPRITE
+                         [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)], #SPRITE
                          'Bomb', #NAME
                          game_constants.COLOR_WHITE, #COLOR
                          3, #WEIGHT
@@ -660,46 +691,46 @@ class i_bomb(game_classes.Consumable):
                          [e_createbomb(GAME.player, 4, 4, 10), e_getused(self)]) #EFFECTS
 class i_meat(game_classes.Consumable):
     def __init__(self, x, y):
-        super().__init__(x, #X
-                         y, #Y
-                         SPRITESHEET_CONSUMABLES.image_at((64, 0, 32, 32), game_constants.COLOR_COLORKEY), #SPRITE
-                         'Meat', #NAME
-                         game_constants.COLOR_WHITE, #COLOR
-                         4, #WEIGHT
-                         [[('Replenishes the user food bar.', game_constants.COLOR_WHITE)],
-                         [('* Amount: ', game_constants.COLOR_WHITE), ('10 HP', game_constants.COLOR_GREEN)]], #DESCRIPTION
-                         [e_eat(GAME.player, 80), e_getused(self)], #EFFECTS
-                         useCondition = [c_playnotfullhunger(GAME.player)]) #CONDITION
+        super().__init__(x = x,
+                         y = y,
+                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((64, 0, 32, 32), game_constants.COLOR_COLORKEY)],
+                         name = 'Meat',
+                         color = game_constants.COLOR_WHITE,
+                         size = 4,
+                         description = [[('Replenishes the user food bar.', game_constants.COLOR_WHITE)],
+                                    [('* Amount: ', game_constants.COLOR_WHITE), ('10 HP', game_constants.COLOR_GREEN)]],
+                         onUse = [e_eat(GAME.player, 80), e_getused(self)],
+                         useCondition = [c_playnotfullhunger(GAME.player)])
 class i_throwablebomb(game_classes.ConsumableMap):
     def __init__(self, x, y):
-        super().__init__(x, #X
-                         y, #Y
-                         SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), #SPRITE
-                         'Throwable bomb', #NAME
-                         game_constants.COLOR_WHITE, #COLOR
-                         3, #WEIGHT
-                         [[('Throws a bomb.', game_constants.COLOR_WHITE)],
-                         [('* Maximum range to throw: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
-                         [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
-                         [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
-                         [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]], #DESCRIPTION
-                         [e_createbomb_l(4, 4, 10), e_getused(self)], #EFFECTS
-                         c_initonplayer, #INITIAL COORDINATES
-                         4) #MAX RANGE
+        super().__init__(x = x,
+                         y = y,
+                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)],
+                         name = 'Throwable bomb',
+                         color = game_constants.COLOR_WHITE,
+                         size = 3,
+                         description = [[('Throws a bomb.', game_constants.COLOR_WHITE)],
+                                     [('* Maximum range to throw: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
+                                     [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
+                                     [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
+                                     [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]],
+                         onUse = [e_createbomb_l(4, 4, 10), e_getused(self)],
+                         initialTarget = c_initonplayer,
+                         maxRange = 4)
 class i_thunderrod(game_classes.ConsumableMap):
     def __init__(self, x, y):
-        super().__init__(x, #X
-                         y, #Y
-                         SPRITESHEET_CONSUMABLES.image_at((96, 0, 32, 32), game_constants.COLOR_COLORKEY), #SPRITE
-                         'Lightning rod', #NAME
-                         game_constants.COLOR_WHITE, #COLOR
-                         1, #WEIGHT
-                         [], #DESCRIPTION
-                         [e_damage_l(5, 'magical', 'lightning'), e_getused(self)], #EFFECTS
-                         c_initonplayer, #INITIAL COORDINATES
-                         8, #MAX RANGE
+        super().__init__(x = x,
+                         y = y,
+                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((96, 0, 32, 32), game_constants.COLOR_COLORKEY)],
+                         name = 'Lightning rod',
+                         color = game_constants.COLOR_WHITE,
+                         size = 1,
+                         description = [],
+                         onUse = [e_damage_l(5, 'magical', 'lightning'), e_getused(self)],
+                         initialTarget = c_initonplayer,
+                         maxRange = 8,
                          targetCondition = [c_creatureinlocation(self)],
-                         charges = 3) #TARGET CONDITION
+                         charges = 3)
 
 # EQUIPMENT BEHAVIORS
 class b_doublehealth(game_classes.Component):
@@ -717,28 +748,31 @@ class i_magichelmet_action(game_classes.Component):
             GAME.player.modifiers.remove(modifier)
 class i_magichelmet(game_classes.Equipment):
     def __init__(self, x, y):
-        super().__init__(x,
-                        y,
-                        game_constants.SPRITE_PLAYER,
-                        'Magic helmet',
-                        game_constants.COLOR_WHITE,
-                        12,
-                        [[('Increases user health by ', game_constants.COLOR_WHITE), ('100 %', game_constants.COLOR_RED)]],
-                        2,
-                        i_magichelmet_action)
+        super().__init__(x = x,
+                        y = y,
+                        sprite_list = SPRITESHEET_EQUIPMENT_HEAD.images_at([(i*32, 0, 32, 32) for i in range(4)], colorkey = game_constants.COLOR_COLORKEY) +
+                                    list(reversed(SPRITESHEET_EQUIPMENT_HEAD.images_at([(i*32, 0, 32, 32) for i in range(4)], colorkey = game_constants.COLOR_COLORKEY))),
+                        name = 'Magic helmet',
+                        color = game_constants.COLOR_WHITE,
+                        size = 6,
+                        description = [[('Increases user health by ', game_constants.COLOR_WHITE), ('100 %', game_constants.COLOR_RED)]],
+                        slot = 2,
+                        actionEquipment = i_magichelmet_action)
 
 # PLAYABLE CHARACTERS
 class p_normal(game_classes.Player):
     def __init__(self, x, y):
-        super().__init__(x,
-                        y,
-                        game_constants.SPRITE_PLAYER, [30, 10, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
-                        [None for i in range(8)],
-                        [d_play_hunger(self, 11), d_play_health(self, 10)],
-                        [s_health(self), s_hunger(self)],
-                        [b_play_move(self)],
-                        [b_play_starvedamage(self)],
-                        [b_crea_simpleattack(self)],
-                        [b_play_death(self)],
-                        [b_crea_takedamage(self)],
-                        [b_play_hunger(self)])
+        super().__init__(x = x,
+                        y = y,
+                        sprite_list = [game_constants.SPRITE_PLAYER],
+                        stats =[30, 10, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
+                        equipment = [None for i in range(8)],
+                        modifiers = [d_play_hunger(self, 11), d_play_health(self, 10)],
+                        status = [s_health(self), s_hunger(self)],
+                        actions = { 'turn': [],
+                                    'move': [b_play_move(self)],
+                                    'starve': [b_play_starvedamage(self)],
+                                    'attack': [b_crea_simpleattack(self)],
+                                    'death': [b_play_death(self)],
+                                    'takeDamage': [b_crea_takedamage(self)],
+                                    'hunger': [b_play_hunger(self)] })

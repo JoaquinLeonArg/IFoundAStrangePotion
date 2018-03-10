@@ -9,6 +9,8 @@ POPUP_WIDTH = 400
 POPUP_OFFSET_X = 12
 POPUP_OFFSET_Y = 10
 
+ANIMATION_WAIT = 20
+
 COLOR_BLACK = (0, 0, 0)
 COLOR_LIGHTGRAY = (200, 200, 200)
 COLOR_GRAY = (150, 150, 150)
@@ -34,10 +36,7 @@ COLOR_HUNGER = (0, 200, 0)
 
 COLOR_COLORKEY = (255, 0, 255)
 
-EFFECTS_MAXTIME = 60
-DAMAGEPOPUP_MAXTIME = 50
-
-SPRITE_PLAYER = pygame.image.load('resources/player.png')
+SPRITE_PLAYER = pygame.image.load('resources/player2.png')
 SPRITE_ENEMY_SLIME = pygame.image.load('resources/enemy_slime.png')
 SPRITE_TITLE = pygame.image.load('resources/title.png')
 SPRITE_DESCRIPTIONWINDOW = pygame.image.load('resources/descriptionwindow.png')
@@ -45,8 +44,8 @@ SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
 SPRITE_STATUS = pygame.image.load('resources/status.png')
 SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
 
-MAP_WIDTH = [150]
-MAP_HEIGHT = [150]
+MAP_WIDTH = [51]
+MAP_HEIGHT = [51]
 
 BORDER_THICKNESS = 2
 

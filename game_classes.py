@@ -9,10 +9,23 @@ class MainMenu:
     def __init__(self):
         self.option = 0
         self.characterNumber = 0
-        self.update = True
+
+        self.surface_logo = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
+        self.surface_options = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
+
+        self.surface_options.set_colorkey(game_constants.COLOR_COLORKEY)
+
+        self.optionsText = [game_constants.FONT_PERFECTDOS_LARGE.render('Start game', False, game_constants.COLOR_WHITE),
+                        game_constants.FONT_PERFECTDOS_LARGE.render('Options', False, game_constants.COLOR_WHITE),
+                        game_constants.FONT_PERFECTDOS_LARGE.render('Exit', False, game_constants.COLOR_WHITE)]
+
+        self.rd_img = True
+        self.rd_opt = True
+        self.update_rects = []
 class Game:
     def __init__(self):
         self.level = 0
+        self.turn_counter = 0
         self.map = None
         self.light_map = None
         self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
@@ -20,6 +33,7 @@ class Game:
         self.surface_effects = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
         self.surface_status = pygame.Surface((game_constants.WINDOW_WIDTH - game_constants.LOG_WIDTH, game_constants.WINDOW_HEIGHT - game_constants.CAMERA_HEIGHT*32))
         self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
+        self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
         self.log = []
         self.long_log = False
         self.creatures = []
@@ -35,6 +49,8 @@ class Game:
         self.surface_effects.set_colorkey(game_constants.COLOR_COLORKEY)
         self.surface_status.set_colorkey(game_constants.COLOR_COLORKEY)
         self.surface_windows.set_colorkey(game_constants.COLOR_COLORKEY)
+        self.surface_entities.fill(game_constants.COLOR_COLORKEY)
+        self.surface_entities.set_colorkey(game_constants.COLOR_COLORKEY)
 
         self.rd_map = True
         self.rd_log = True
@@ -56,6 +72,9 @@ class Game:
             if (obj.x == x and obj.y == y):
                 return False
         return True
+    def updateOrder(self):
+        self.entities.sort(key = lambda e: e.priority)
+        self.creatures.sort(key = lambda c: c.priority)
 class Spritesheet(object):
     def __init__(self, filename):
         self.sheet = pygame.image.load(filename).convert()
@@ -210,43 +229,46 @@ class WindowSelectable(Window):
         else:
             self.quantities = []
 class Entity:
-    def __init__(self, x, y, sprite):
+    def __init__(self, x, y, tag, sprite_list):
         self.x = x
         self.y = y
-        self.sprite = sprite
+        self.tag = tag
+        self.priority = 0
+        self.sprite_list = sprite_list
+        self.sprite = self.sprite_list[0]
+        self.frame = 0
     def draw(self): # DRAW
-        GAME.update_rects.append(GAME.surface_map.blit(self.sprite, ((self.x - GAME.camera.x)*32, (self.y - GAME.camera.y)*32)))
+        GAME.update_rects.append(GAME.surface_entities.blit(self.sprite, ((self.x - GAME.camera.x)*32, (self.y - GAME.camera.y)*32)))
+    def update_frame(self):
+        self.sprite = self.sprite_list[self.frame // game_constants.ANIMATION_WAIT % len(self.sprite_list)]
+        self.frame += 1
+    def move(self, dx, dy):
+        pass
 class Creature(Entity):
-    def __init__(self, x, y, sprite):
-        super().__init__(x, y, sprite)
-        self.tag = 'neutral'
-    def move(self, dx, dy): # CHECK FOR CREATURE IN THE MOVING TILE AND ATTACK. IF NOT, MOVE.
-        for obj in GAME.creatures:
-            if (obj.x == self.x + dx and obj.y == self.y + dy):
-                return
-        if True:#GAME.map[self.x + dx][self.y + dy].passable:
-            self.x += dx
-            self.y += dy
+    def __init__(self, x, y, sprite_list):
+        super().__init__(x, y, 'neutral', sprite_list)
+        self.priority = 1
     def isEnemy(self, target):
         return self.tag != target.tag
     def execute_action(self):
-        for action in self.actionTurn:
+        for action in self.actions['turn']:
             action.execute()
     def move(self, dx = 0, dy = 0):
-        for action in self.actionMove:
+        super().move(dx, dy)
+        for action in self.actions['move']:
             action.execute(dx, dy)
     def attack(self, obj):
-        for action in self.actionAttack:
+        for action in self.actions['attack']:
             action.execute(obj)
     def damage(self, value, damageType, damageSubtype):
-        for action in self.actionTakeDamage:
+        for action in self.actions['takeDamage']:
             action.execute(value, damageType, damageSubtype)
     def die(self):
-        for action in self.actionDeath:
+        for action in self.actions['death']:
             action.execute()
 class Player(Creature):
-    def __init__(self, x, y, sprite, stats, equipment, modifiers, status, actionMove, actionStarve, actionAttack, actionDeath, actionTakeDamage, actionTurn):
-        super().__init__(x, y, sprite)
+    def __init__(self, x, y, sprite_list, stats, equipment, modifiers, status, actions):
+        super().__init__(x, y, sprite_list)
         self.inventory = []
         self.name = 'Player'
         self.tag = 'human'
@@ -259,17 +281,13 @@ class Player(Creature):
         self.hunger = game_constants.MAX_HUNGER
         self.damageStat = 10 # PLACEHOLDER
         self.active = True
+        self.priority = 2
 
         self.modifiers = modifiers
         self.status = status
-        self.actionMove = actionMove
-        self.actionStarve = actionStarve
-        self.actionAttack = actionAttack
-        self.actionDeath = actionDeath
-        self.actionTakeDamage = actionTakeDamage
-        self.actionTurn = actionTurn
+        self.actions = actions
     def input(self, key):
-        if self.active: #TODO: PASARLO AL PLAYER
+        if self.active:
             if key == pygame.K_UP:
                 self.move(0, -1)
                 GAME.action = 'move'
@@ -286,12 +304,9 @@ class Player(Creature):
                 self.move(1, 0)
                 GAME.action = 'move'
                 util.map_light_update(GAME.light_map)
-    def move(self, dx, dy):
-        if self.active:
-            super().move(dx, dy)
     def execute_action(self):
         self.recalculateStats()
-        for action in self.actionTurn:
+        for action in self.actions['turn']:
             action.execute()
     def recalculateStats(self):
         self.modifiers = sorted(self.modifiers, key = lambda action: action.priority, reverse = True)
@@ -303,38 +318,28 @@ class Player(Creature):
     def currentWeight(self):
         return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item != None])
     def onStarve(self):
-        for action in self.actionStarve:
+        for action in self.actions['starve']:
             action.execute()
 class Monster(Creature):
-    def __init__(self, x, y, sprite, name, maxHp, drops, actionTurn, actionMove, actionAttack, actionTakeDamage, actionDeath):
-        super().__init__(x, y, sprite)
+    def __init__(self, x, y, sprite_list, name, maxHp, drops, actions):
+        super().__init__(x, y, sprite_list)
         self.name = name
         self.maxHp = maxHp
         self.hp = maxHp
         self.damageStat = random.randint(1,6)
         self.drops = drops
-        self.actionTurn = actionTurn
-        self.actionMove = actionMove
-        self.actionAttack = actionAttack
-        self.actionTakeDamage = actionTakeDamage
-        self.actionDeath = actionDeath
+        self.actions = actions
         self.tag = 'monster'
-    def antistuck(self):
-        for creature in GAME.creatures:
-            if (creature is not self and self.x == creature.x and self.y == creature.y):
-                self.x += 1
-                self.y += 1
-                self.antistuck()
 class Item(Entity):
-    def __init__(self, x, y, sprite, name, color, size, description):
-        super().__init__(x, y, sprite)
+    def __init__(self, x, y, sprite_list, name, color, size, description):
+        super().__init__(x, y, 'item', sprite_list)
         self.name = name
         self.size = size
         self.color = color
         self.description = description
 class Equipment(Item):
-    def __init__(self, x, y, sprite, name, color, size, description, slot, actionEquipment, requirements = []):
-        super().__init__(x, y, sprite, name, color, size, description)
+    def __init__(self, x, y, sprite_list, name, color, size, description, slot, actionEquipment, requirements = []):
+        super().__init__(x, y, sprite_list, name, color, size, description)
         self.slot = slot
         self.itemType = 'equipment'
         self.actionEquipment = actionEquipment(self)
@@ -344,8 +349,8 @@ class Equipment(Item):
     def unequip(self):
         self.actionEquipment.onUnequip()
 class Consumable(Item):
-    def __init__(self, x, y, sprite, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'self'):
-        super().__init__(x, y, sprite, name, color, size, description)
+    def __init__(self, x, y, sprite_list, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'self'):
+        super().__init__(x, y, sprite_list, name, color, size, description)
         self.onUse = onUse
         self.useCondition = useCondition
         self.charges = charges
@@ -366,8 +371,8 @@ class Consumable(Item):
     def gotUsed(self):
         return self.used
 class ConsumableMap(Consumable):
-    def __init__(self, x, y, sprite, name, color, size, description, onUse, initialTarget, maxRange, targetCondition = [], useCondition = [], charges = 1):
-        super().__init__(x, y, sprite, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'map')
+    def __init__(self, x, y, sprite_list, name, color, size, description, onUse, initialTarget, maxRange, targetCondition = [], useCondition = [], charges = 1):
+        super().__init__(x, y, sprite_list, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'map')
         self.initialTarget = initialTarget(self)
         self.maxRange = maxRange
         self.conditions = targetCondition
