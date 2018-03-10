@@ -31,5 +31,6 @@ def draw_text_bg(surface, text, x, y, font, text_color, bg_color):
     surface.blit(font.render(text, False, text_color), (x, y))
     return rect
 
+# OTHER
 def map_light_update(light_map):
     libtcodpy.map_compute_fov(light_map, GAME.player.x, GAME.player.y, game_constants.LIGHT_RADIUS, True, libtcodpy.FOV_DIAMOND)
