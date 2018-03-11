@@ -79,6 +79,16 @@ class Window_SelectTarget(game_classes.WindowSelectable):
                     self.parent.parent.index -= 1
                 GAME.action = 'item'
                 GAME.controlsText = game_constants.TEXT_ONINVENTORY
+        if key == 'cancel':
+            self.parent.destroy()
+            self.destroy()
+            self.parent.parent.getItems()
+            self.parent.parent.active = True
+            self.parent.parent.visible = True
+            if self.parent.parent.index > 0:
+                self.parent.parent.index -= 1
+            GAME.action = 'item'
+            GAME.controlsText = game_constants.TEXT_ONINVENTORY
 class Window_Description(game_classes.Window):
     def __init__(self, parent):
         self.parent = parent
