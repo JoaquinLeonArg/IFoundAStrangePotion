@@ -2,8 +2,11 @@ import pygame
 
 pygame.init()
 
-WINDOW_WIDTH = 1280
+WINDOW_WIDTH = 1280 # NATIVE RESOLUTION, DO NOT TOUCH!
 WINDOW_HEIGHT = 720
+
+GAME_RESOLUTION_WIDTH = 1280 # WINDOW RESOLUTION
+GAME_RESOLUTION_HEIGHT = 720
 
 POPUP_WIDTH = 400
 POPUP_OFFSET_X = 12
@@ -44,8 +47,8 @@ SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
 SPRITE_STATUS = pygame.image.load('resources/status.png')
 SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
 
-MAP_WIDTH = [51]
-MAP_HEIGHT = [51]
+MAP_WIDTH = [50, 60, 60, 50]
+MAP_HEIGHT = [50, 60, 70, 60]
 
 BORDER_THICKNESS = 2
 
@@ -64,6 +67,12 @@ LOG_MAX_LENGTH = 6
 LOG_MAX_LENGTH_LONG = 20
 LOG_WIDTH = 400
 
+
+KEY_MAPUP = 264 #8
+KEY_MAPDOWN = 258 #2
+KEY_MAPLEFT = 260 #4
+KEY_MAPRIGHT = 262 #6
+
 KEY_LOG = pygame.K_l
 KEY_SEARCH = pygame.K_f
 KEY_INVENTORY = pygame.K_i
@@ -80,3 +89,5 @@ TEXT_ONPOPUP = [('S:', 'select'), ('C:', 'go back')]
 TEXT_ONSEARCH = [('S:', 'grab'), ('C:', 'go back')]
 TEXT_ONSTATUS = [('C:', 'go back')]
 TEXT_ONEQUIPMENT = [('S:', 'select'), ('C:', 'go back')]
+
+MONSTERS_POOL = [[0], [0], [0], [0], [0], [0]]

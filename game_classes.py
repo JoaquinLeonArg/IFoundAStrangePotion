@@ -1,12 +1,15 @@
 import pygame
 import game_constants
-import util
+import game_util
 import random
+import libtcodpy
 
 pygame.init()
 
 class MainMenu:
     def __init__(self):
+        self.timer = 0
+
         self.option = 0
         self.characterNumber = 0
 
@@ -37,7 +40,7 @@ class Game:
         self.log = []
         self.long_log = False
         self.creatures = []
-        self.camera = Camera(0, 0, game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level], game_constants.CAMERA_WIDTH, game_constants.CAMERA_HEIGHT)
+        self.camera = Camera()
         self.windows = []
         self.popup_lock = False
         self.items = []
@@ -52,9 +55,9 @@ class Game:
         self.surface_entities.fill(game_constants.COLOR_COLORKEY)
         self.surface_entities.set_colorkey(game_constants.COLOR_COLORKEY)
 
-        self.rd_map = True
+        self.player_moved = False
+
         self.rd_log = True
-        self.rd_eff = True
         self.rd_sta = True
         self.rd_win = True
         self.update_rects = []
@@ -75,6 +78,18 @@ class Game:
     def updateOrder(self):
         self.entities.sort(key = lambda e: e.priority)
         self.creatures.sort(key = lambda c: c.priority)
+    def generateMap(self, gen_function):
+        self.map, self.items, self.entities, self.creatures = gen_function(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
+        self.map_light_init()
+        self.player.x = game_constants.MAP_WIDTH[self.level]//2
+        self.player.y = game_constants.MAP_HEIGHT[self.level]//2
+        self.creatures.append(self.player)
+        game_util.map_light_update(self.light_map)
+    def map_light_init(self):
+        self.light_map = libtcodpy.map_new(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
+        for x in range(game_constants.MAP_WIDTH[self.level]):
+            for y in range(game_constants.MAP_HEIGHT[self.level]):
+                libtcodpy.map_set_properties(self.light_map, x, y, self.map[x][y].transparent, self.map[x][y].passable)
 class Spritesheet(object):
     def __init__(self, filename):
         self.sheet = pygame.image.load(filename).convert()
@@ -89,6 +104,8 @@ class Spritesheet(object):
         return image
     def images_at(self, rects, colorkey = None): # Load a whole bunch of images and return them as a list
         return [self.image_at(rect, colorkey) for rect in rects]
+    def images_at_loop(self, rects, colorkey = None):
+        return self.images_at(rects, colorkey) + list(reversed(self.images_at(rects, colorkey)))
     def load_strip(self, rect, image_count, colorkey = None): # Load a whole strip of images
         tups = [(rect[0]+rect[2]*x, rect[1], rect[2], rect[3])
                 for x in range(image_count)]
@@ -106,23 +123,20 @@ class Tile:
     def onDestroy(self):
         return
 class Camera:
-    def __init__(self, min_x, min_y, max_x, max_y, width, height):
-        self.min_x = min_x
-        self.min_y = min_y
-        self.max_x = max_x - width
-        self.max_y = max_y - height
+    def __init__(self):
         self.x = 0
         self.y = 0
-        self.width = width
-        self.height = height
     def update(self, x, y):
-        self.x = util.clamp(x-self.width/2, self.min_x, self.max_x)
-        self.y = util.clamp(y-self.height/2, self.min_y, self.max_y)
+        self.x += (x-self.x-game_constants.CAMERA_WIDTH*16)*0.05
+        self.y += (y-self.y-game_constants.CAMERA_HEIGHT*16)*0.05
+        self.x = int(game_util.clamp(self.x, 0, game_constants.MAP_WIDTH[GAME.level]*32 - game_constants.CAMERA_WIDTH*32))
+        self.y = int(game_util.clamp(self.y, 0, game_constants.MAP_HEIGHT[GAME.level]*32 - game_constants.CAMERA_HEIGHT*32))
 class VisualEffect:
     def __init__(self, x, y, width, height, image = None, period = 0):
         self.time = 0
         self.x = x
         self.y = y
+        self.visible = True
         self.width = width
         self.height = height
         self.surface = pygame.Surface((width, height))
@@ -131,6 +145,33 @@ class VisualEffect:
         self.time += 1
         if self.period > 0:
             self.time %= self.period
+class ObjectMovement(VisualEffect):
+    def __init__(self, parent, ix, iy, fx, fy, travelTime, images):
+        self.parent = parent
+        self.parent.visible = False
+        self.x = ix
+        self.y = iy
+        self.frame = 0
+        self.images = images
+        self.image = images[0]
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
+        self.xstep = (fx-ix)/travelTime
+        self.ystep = (fy-iy)/travelTime
+        self.surface = self.image
+        self.travelTime = travelTime
+    def execute(self):
+        if self.travelTime > 0:
+            self.x += self.xstep
+            self.y += self.ystep
+            self.travelTime -= 1
+        else:
+            GAME.visualactiveeffects.remove(self)
+            self.parent.visible = True
+        if libtcodpy.map_is_in_fov(GAME.light_map, self.parent.x, self.parent.y):
+            self.visible = True
+        else:
+            self.visible = False
 class Window:
     def __init__(self, parent, active, visible, image):
         self.x = game_constants.CAMERA_WIDTH*32 - game_constants.POPUP_WIDTH - game_constants.BORDER_THICKNESS*2
@@ -152,7 +193,7 @@ class Window:
             if self.image != None:
                 self.surface.blit(self.image, (0, 0))
             if self.title != '':
-                util.draw_text(self.surface, self.title, game_constants.POPUP_OFFSET_X, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+                game_util.draw_text(self.surface, self.title, game_constants.POPUP_OFFSET_X, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
     def input(self):
         GAME.rd_win = True
     def destroy(self):
@@ -204,7 +245,7 @@ class WindowSelectable(Window):
                 self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16+yoffset, self.width - 8, 16))
                 if self.itemType == 0:
                     for itemIndex in range(len(self.items)):
-                        util.draw_text(self.surface, self.items[itemIndex].name, game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex].color)
+                        game_util.draw_text(self.surface, self.items[itemIndex].name, game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex].color)
                         if len(self.quantities) == len(self.items):
                             text = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_WHITE)
                             text_shadow = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_SHADOW)
@@ -212,7 +253,7 @@ class WindowSelectable(Window):
                             self.surface.blit(text, (self.width - text.get_width() - 4, itemIndex*16+yoffset))
                 elif self.itemType == 1:
                     for itemIndex in range(len(self.items)):
-                        util.draw_text(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1])
+                        game_util.draw_text(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1])
                         if len(self.quantities) == len(self.items):
                             text = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_WHITE)
                             text_shadow = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_SHADOW)
@@ -229,32 +270,39 @@ class WindowSelectable(Window):
         else:
             self.quantities = []
 class Entity:
-    def __init__(self, x, y, tag, sprite_list):
+    def __init__(self, x, y, tags, sprite_list):
         self.x = x
         self.y = y
-        self.tag = tag
+        self.tags = tags
+        self.visible = True
         self.priority = 0
         self.sprite_list = sprite_list
         self.sprite = self.sprite_list[0]
         self.frame = 0
     def draw(self): # DRAW
-        GAME.update_rects.append(GAME.surface_entities.blit(self.sprite, ((self.x - GAME.camera.x)*32, (self.y - GAME.camera.y)*32)))
+        if self.visible:
+            GAME.update_rects.append(GAME.surface_entities.blit(self.sprite, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y)))
     def update_frame(self):
         self.sprite = self.sprite_list[self.frame // game_constants.ANIMATION_WAIT % len(self.sprite_list)]
         self.frame += 1
     def move(self, dx, dy):
         pass
+    def destroy(self):
+        GAME.entities.remove(self)
 class Creature(Entity):
-    def __init__(self, x, y, sprite_list):
-        super().__init__(x, y, 'neutral', sprite_list)
+    def __init__(self, x, y, tags, sprite_list, actions):
+        super().__init__(x, y, tags, sprite_list)
         self.priority = 1
+        self.actions = actions
     def isEnemy(self, target):
-        return self.tag != target.tag
+        return 'enemy' in self.tags
     def execute_action(self):
         for action in self.actions['turn']:
             action.execute()
     def move(self, dx = 0, dy = 0):
         super().move(dx, dy)
+        if GAME.placeFree(self.x + dx, self.y + dy) and GAME.map[self.x + dx][self.y + dy].passable:
+            GAME.visualactiveeffects.append(ObjectMovement(self, self.x*32, self.y*32, (self.x + dx)*32, (self.y + dy)*32, 8, [self.sprite]))
         for action in self.actions['move']:
             action.execute(dx, dy)
     def attack(self, obj):
@@ -268,11 +316,11 @@ class Creature(Entity):
             action.execute()
 class Player(Creature):
     def __init__(self, x, y, sprite_list, stats, equipment, modifiers, status, actions):
-        super().__init__(x, y, sprite_list)
+        super().__init__(x, y, ['player'], sprite_list, actions)
         self.inventory = []
         self.name = 'Player'
-        self.tag = 'human'
         self.xp = 0
+        self.level = 1
         self.equipment = equipment
         self.baseStats = stats
         self.stats = self.baseStats
@@ -288,22 +336,18 @@ class Player(Creature):
         self.actions = actions
     def input(self, key):
         if self.active:
-            if key == pygame.K_UP:
+            if key == 'up':
                 self.move(0, -1)
-                GAME.action = 'move'
-                util.map_light_update(GAME.light_map)
-            elif key == pygame.K_DOWN:
+                game_util.map_light_update(GAME.light_map)
+            elif key == 'down':
                 self.move(0, 1)
-                GAME.action = 'move'
-                util.map_light_update(GAME.light_map)
-            elif key == pygame.K_LEFT:
+                game_util.map_light_update(GAME.light_map)
+            elif key == 'left':
                 self.move(-1, 0)
-                GAME.action = 'move'
-                util.map_light_update(GAME.light_map)
-            elif key == pygame.K_RIGHT:
+                game_util.map_light_update(GAME.light_map)
+            elif key == 'right':
                 self.move(1, 0)
-                GAME.action = 'move'
-                util.map_light_update(GAME.light_map)
+                game_util.map_light_update(GAME.light_map)
     def execute_action(self):
         self.recalculateStats()
         for action in self.actions['turn']:
@@ -321,25 +365,25 @@ class Player(Creature):
         for action in self.actions['starve']:
             action.execute()
 class Monster(Creature):
-    def __init__(self, x, y, sprite_list, name, maxHp, drops, actions):
-        super().__init__(x, y, sprite_list)
+    def __init__(self, x, y, tags, sprite_list, name, actions, maxHp, drops):
+        super().__init__(x, y, tags, sprite_list, actions)
         self.name = name
         self.maxHp = maxHp
         self.hp = maxHp
         self.damageStat = random.randint(1,6)
         self.drops = drops
         self.actions = actions
-        self.tag = 'monster'
+        self.tags = ['monster'] + tags
 class Item(Entity):
-    def __init__(self, x, y, sprite_list, name, color, size, description):
-        super().__init__(x, y, 'item', sprite_list)
+    def __init__(self, x, y, tags, sprite_list, name, color, size, description):
+        super().__init__(x, y, tags, sprite_list)
         self.name = name
         self.size = size
         self.color = color
         self.description = description
 class Equipment(Item):
-    def __init__(self, x, y, sprite_list, name, color, size, description, slot, actionEquipment, requirements = []):
-        super().__init__(x, y, sprite_list, name, color, size, description)
+    def __init__(self, x, y, tags, sprite_list, name, color, size, description, slot, actionEquipment, requirements = []):
+        super().__init__(x, y, tags, sprite_list, name, color, size, description)
         self.slot = slot
         self.itemType = 'equipment'
         self.actionEquipment = actionEquipment(self)
@@ -349,13 +393,13 @@ class Equipment(Item):
     def unequip(self):
         self.actionEquipment.onUnequip()
 class Consumable(Item):
-    def __init__(self, x, y, sprite_list, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'self'):
-        super().__init__(x, y, sprite_list, name, color, size, description)
-        self.onUse = onUse
+    def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, useCondition = [], charges = 1):
+        super().__init__(x, y, tags, sprite_list, name, color, size, description)
+        self.tags += ['target_self']
+        self.onUse = effects
         self.useCondition = useCondition
         self.charges = charges
         self.displayCharges = self.charges == 1
-        self.target = target
         self.itemType = 'consumable'
         self.used = False
     def use(self):
@@ -371,8 +415,10 @@ class Consumable(Item):
     def gotUsed(self):
         return self.used
 class ConsumableMap(Consumable):
-    def __init__(self, x, y, sprite_list, name, color, size, description, onUse, initialTarget, maxRange, targetCondition = [], useCondition = [], charges = 1):
-        super().__init__(x, y, sprite_list, name, color, size, description, onUse, useCondition = [], charges = 1, target = 'map')
+    def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, initialTarget, maxRange, useCondition = [], charges = [], targetCondition = []):
+        super().__init__(x, y,tags, sprite_list, name, color, size, description, effects, useCondition, charges)
+        self.tags.remove('target_self')
+        self.tags += ['target_map']
         self.initialTarget = initialTarget(self)
         self.maxRange = maxRange
         self.conditions = targetCondition

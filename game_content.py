@@ -1,20 +1,24 @@
 import game_classes
 import game_constants
 import random
-import util
+import game_util
 import pygame
 import libtcodpy
 import sys
 
 pygame.init()
 
-#SPRITESHEETS
+################################################# CONSTANTS #################################################
+
+SPRITESHEET_PLAYER = game_classes.Spritesheet('resources/graphics/player.png')
 SPRITESHEET_TILES = game_classes.Spritesheet('resources/tiles.png')
 SPRITESHEET_CONSUMABLES = game_classes.Spritesheet('resources/consumables.png')
 SPRITESHEET_ENTITIES = game_classes.Spritesheet('resources/entities.png')
 SPRITESHEET_ICONS = game_classes.Spritesheet('resources/icons.png')
 SPRITESHEET_MONSTERS = game_classes.Spritesheet('resources/graphics/monsters_animated.png')
 SPRITESHEET_EQUIPMENT_HEAD = game_classes.Spritesheet('resources/graphics/equipment_head_animated.png')
+
+################################################# CLASSES #################################################
 
 # WINDOWS
 class Window_PlayerInventory(game_classes.WindowSelectable):
@@ -49,23 +53,23 @@ class Window_SelectTarget(game_classes.WindowSelectable):
             self.surface.fill(game_constants.COLOR_COLORKEY)
             for x in range(GAME.player.x - self.item.maxRange, GAME.player.x + self.item.maxRange+1):
                 for y in range(GAME.player.y - self.item.maxRange, GAME.player.y + self.item.maxRange+1):
-                    if self.item.targetCondition(x, y) and util.simpledistance((GAME.player.x, GAME.player.y), (x, y)) <= self.item.maxRange:
-                        self.surface.fill(game_constants.COLOR_GREEN, pygame.Rect((x - GAME.camera.x)*32, (y - GAME.camera.y)*32, 32, 32))
-            self.surface.blit(self.image, ((self.x - GAME.camera.x)*32, (self.y - GAME.camera.y)*32))
+                    if self.item.targetCondition(x, y) and game_util.simpledistance((GAME.player.x, GAME.player.y), (x, y)) <= self.item.maxRange:
+                        self.surface.fill(game_constants.COLOR_GREEN, pygame.Rect((x*32 - GAME.camera.x), (y*32 - GAME.camera.y), 32, 32))
+            self.surface.blit(self.image, ((self.x*32 - GAME.camera.x), (self.y*32 - GAME.camera.y)))
             GAME.update_rects.append(GAME.surface_map.blit(self.surface, (0, 0)))
     def input(self, key):
         GAME.rd_win = True
         if key == 'up':
-            if util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y - 1)) <= self.item.maxRange:
+            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y - 1)) <= self.item.maxRange:
                 self.y -= 1
         if key == 'down':
-            if util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y + 1)) <= self.item.maxRange:
+            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y + 1)) <= self.item.maxRange:
                 self.y += 1
         if key == 'left':
-            if util.simpledistance((GAME.player.x, GAME.player.y), (self.x - 1, self.y)) <= self.item.maxRange:
+            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x - 1, self.y)) <= self.item.maxRange:
                 self.x -= 1
         if key == 'right':
-            if util.simpledistance((GAME.player.x, GAME.player.y), (self.x + 1, self.y)) <= self.item.maxRange:
+            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x + 1, self.y)) <= self.item.maxRange:
                 self.x += 1
         if key == 'use':
             if self.item.targetCondition(self.x, self.y):
@@ -111,8 +115,8 @@ class Window_Description(game_classes.Window):
             if self.itemType == 0:
                 if self.item.sprite_list != None:
                     self.surface.blit(pygame.transform.scale2x(self.item.sprite), (16, 16))
-                util.draw_text(self.surface, self.item.name, 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item.color)
-                util.draw_text(self.surface, self.item.itemType, 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+                game_util.draw_text(self.surface, self.item.name, 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item.color)
+                game_util.draw_text(self.surface, self.item.itemType, 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
                 for lineIndex in range(len(self.item.description)):
                     xoffset = 0
                     for element in self.item.description[lineIndex]:
@@ -122,8 +126,8 @@ class Window_Description(game_classes.Window):
             elif self.itemType == 1:
                 if self.item[2] != None:
                     self.surface.blit(pygame.transform.scale2x(self.item[2]), (16, 16))
-                util.draw_text(self.surface, self.item[0], 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item[1])
-                util.draw_text(self.surface, self.item[3], 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+                game_util.draw_text(self.surface, self.item[0], 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item[1])
+                game_util.draw_text(self.surface, self.item[3], 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
                 for lineIndex in range(len(self.item[4])):
                     xoffset = 0
                     for element in self.item[4][lineIndex]:
@@ -134,7 +138,6 @@ class Window_Description(game_classes.Window):
 class Window_Equipment(game_classes.WindowSelectable):
     def __init__(self):
         super().__init__(None, 336, 'Equipment', True, True, game_constants.SPRITE_ITEMSWINDOW, w_equipment_items, [w_arrowkeys_input, w_equipment_input, w_update_description], descriptionWindow = Window_Description, itemType = 0)
-
 
 class w_arrowkeys_input(game_classes.Component):
     def execute(self, key):
@@ -218,7 +221,7 @@ class w_popupinventoryc_input(game_classes.Component):
         if key == 'use':
             if self.parent.index == 0: #USE
                 if GAME.player.inventory[self.parent.parent.index].condition():
-                    if GAME.player.inventory[self.parent.parent.index].target == 'self':
+                    if 'target_self' in GAME.player.inventory[self.parent.parent.index].tags:
                         GAME.player.inventory[self.parent.parent.index].use()
                         self.parent.parent.getItems()
                         self.parent.parent.active = True
@@ -227,7 +230,7 @@ class w_popupinventoryc_input(game_classes.Component):
                         GAME.action = 'item'
                         GAME.controlsText = game_constants.TEXT_ONINVENTORY
                         self.parent.destroy()
-                    elif GAME.player.inventory[self.parent.parent.index].target == 'map':
+                    elif 'target_map' in GAME.player.inventory[self.parent.parent.index].tags:
                         self.parent.mapWindow = Window_SelectTarget(self.parent, GAME.player.inventory[self.parent.parent.index])
                         GAME.windows.append(self.parent.mapWindow)
                         self.parent.active = False
@@ -346,18 +349,15 @@ class w_popupequipment_input(game_classes.Component):
 class b_play_move(game_classes.Component):
     def execute(self, dx = 0, dy = 0):
         for entity in GAME.entities:
-            if entity.x == self.parent.x + dx and entity.y == self.parent.y + dy and entity.tag == 'door_closed':
-                entity.tag = 'door_open'
-                entity.sprite_list = [entity.sprite_open]
-                GAME.map[entity.x][entity.y].passable = True
-                GAME.map[entity.x][entity.y].transparent = True
-                libtcodpy.map_set_properties(GAME.light_map, entity.x, entity.y, True, True)
-                util.map_light_update(GAME.light_map)
-                return
+            if entity.x == self.parent.x + dx and entity.y == self.parent.y + dy and 'openable' in entity.tags:
+                if not entity.isOpen:
+                    entity.open()
+                    return
         if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
             if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
                 self.parent.x += dx
                 self.parent.y += dy
+                GAME.action = 'move'
         else:
             for creature in GAME.creatures:
                 if (creature is not self.parent and creature.x == self.parent.x + dx and creature.y == self.parent.y + dy):
@@ -390,29 +390,37 @@ class d_play_hunger(game_classes.Component):
         self.parent.stats[0] = int(self.parent.stats[0])
 
 # CREATURES BEHAVIOR
-class b_crea_simpleturn(game_classes.Component):
-    def execute(self):
-        if util.distance(self.parent, GAME.player) == 1:
-            self.parent.attack(GAME.player)
-        else:
-            self.parent.move()
-class b_crea_randommove(game_classes.Component):
+class b_crea_move(game_classes.Component):
     def execute(self, dx = 0, dy = 0):
-        rnd = random.randint(1,5)
-        if rnd == 0:
-            dx, dy = (-1, 0)
-        elif rnd == 1:
-            dx, dy = (1, 0)
-        elif rnd == 2:
-            dx, dy = (0, -1)
-        elif rnd == 3:
-            dx, dy = (0, 1)
-        else:
-            dx, dy = (0, 0)
+        for entity in GAME.entities:
+            if entity.x == self.parent.x + dx and entity.y == self.parent.y + dy and entity.tag == 'door_closed':
+                entity.open()
+                return
         if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
             if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
                 self.parent.x += dx
                 self.parent.y += dy
+        else:
+            for creature in GAME.creatures:
+                if (creature is not self.parent and creature.x == self.parent.x + dx and creature.y == self.parent.y + dy):
+                    self.parent.attack(creature)
+                    break
+class b_crea_simpleturn(game_classes.Component):
+    def execute(self):
+        if game_util.distance(self.parent, GAME.player) == 1:
+            self.parent.attack(GAME.player)
+        else:
+            rnd = random.randint(1,5)
+            if rnd == 0:
+                self.parent.move(-1, 0)
+            elif rnd == 1:
+                self.parent.move(1, 0)
+            elif rnd == 2:
+                self.parent.move(0, -1)
+            elif rnd == 3:
+                self.parent.move(0, 1)
+            else:
+                self.parent.move(0, 0)
 class b_crea_takedamage(game_classes.Component):
     def execute(self, amount, damageType, damageSubtype):
         self.parent.hp -= amount
@@ -522,14 +530,12 @@ class e_eat(game_classes.Component):
 
         # DISTANCE EFFECTS
 
-
 class e_createbomb_l():
     def __init__(self, turns, radius, damage):
         self.turns = turns
         self.radius = radius
         self.damage = damage
     def execute(self, x, y):
-        GAME.visualactiveeffects.append(va_objecttravel(GAME.player.x*32, GAME.player.y*32, x*32, y*32, 100, [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)]))
         GAME.entities.append(n_bomb(x, y, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), self.turns, self.radius, self.damage))
         GAME.addLogMessage('The bomb will explode in ' + str(self.turns) + ' turns!', game_constants.COLOR_ALLY)
 class e_damage_l():
@@ -562,16 +568,31 @@ class c_creatureinlocation(game_classes.Component):
 # ENTITIES
 class n_door(game_classes.Entity):
     def __init__(self, x, y, sprite_closed, sprite_open):
-        super().__init__(x, y, 'door_closed', [sprite_closed])
+        super().__init__(x, y, ['openable', 'door', 'impassable'], [sprite_closed])
         self.sprite_open = sprite_open
+        self.isOpen = False
+    def open(self):
+        self.isOpen = True
+        self.sprite_list = [self.sprite_open]
+        GAME.map[self.x][self.y].passable = True
+        GAME.map[self.x][self.y].transparent = True
+        libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, True, True)
+        game_util.map_light_update(GAME.light_map)
+    def destroy(self):
+        super().destroy()
+        GAME.map[self.x][self.y].passable = True
+        GAME.map[self.x][self.y].transparent = True
+        libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, True, True)
+        game_util.map_light_update(GAME.light_map)
     def execute_action(self):
         pass
 class n_bomb(game_classes.Entity):
     def __init__(self, x, y, sprite, turns, radius, damage):
-        super().__init__(x, y, 'impassable', [sprite])
+        super().__init__(x, y, ['explosive', 'impassable'], [sprite])
         self.turns = turns
         self.radius = radius
         self.damage = damage
+        GAME.visualactiveeffects.append(game_classes.ObjectMovement(self, GAME.player.x*32, GAME.player.y*32, x*32, y*32, 100, [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)]))
     def execute_action(self):
         if self.turns > 0:
             self.turns -= 1
@@ -579,15 +600,24 @@ class n_bomb(game_classes.Entity):
             for game_classes.Tilex in range(self.x - self.radius, self.x + self.radius+1):
                 for game_classes.Tiley in range(self.y - self.radius, self.y + self.radius+1):
                     if game_classes.Tilex < game_constants.MAP_WIDTH[GAME.level] and game_classes.Tiley < game_constants.MAP_HEIGHT[GAME.level]:
-                        if util.simpledistance((game_classes.Tilex, game_classes.Tiley), (self.x, self.y)) <= self.radius:
+                        if game_util.simpledistance((game_classes.Tilex, game_classes.Tiley), (self.x, self.y)) <= self.radius:
                             GAME.visualeffects.append(v_square_fadeout(game_classes.Tilex, game_classes.Tiley, game_constants.COLOR_RED))
                             GAME.map[game_classes.Tilex][game_classes.Tiley].onDestroy()
             for creature in GAME.creatures:
-                if util.distance(self, creature) <= self.radius:
+                if game_util.distance(self, creature) <= self.radius:
                     creature.damage(self.damage, 'physical', 'explosion')
-            util.map_light_update(GAME.light_map)
+            for entity in GAME.entities:
+                if game_util.simpledistance((entity.x, entity.y), (self.x, self.y)) <= self.radius:
+                    entity.destroy()
+            game_util.map_light_update(GAME.light_map)
             GAME.addLogMessage('You hear a loud explosion.', game_constants.COLOR_INFO)
-            GAME.entities.remove(self)
+class n_exit(game_classes.Entity):
+    def __init__(self, x, y):
+        super().__init__(x, y, [], [SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)])
+    def execute_action(self):
+        if GAME.player.x == self.x and GAME.player.y == self.y:
+            GAME.level += 1
+            GAME.generateMap(map_init_dungeon)
 
 # VISUALS
 class v_square_fadeout(game_classes.VisualEffect):
@@ -600,26 +630,6 @@ class v_square_fadeout(game_classes.VisualEffect):
         self.surface.set_alpha(255*(self.maxtime - self.time)/self.maxtime)
         if self.time > self.maxtime:
             GAME.visualeffects.remove(self)
-class va_objecttravel(game_classes.VisualEffect):
-    def __init__(self, ix, iy, fx, fy, travelTime, images):
-        self.x = ix
-        self.y = iy
-        self.frame = 0
-        self.images = images
-        self.image = images[0]
-        self.width = self.image.get_width()
-        self.height = self.image.get_height()
-        self.xstep = (fx-ix)/travelTime
-        self.ystep = (fy-iy)/travelTime
-        self.surface = self.image
-        self.travelTime = travelTime
-    def execute(self):
-        if self.travelTime > 0:
-            self.x += self.xstep
-            self.y += self.ystep
-            self.travelTime -= 1
-        else:
-            GAME.visualactiveeffects.remove(self)
 
 # TILES
 class t_cave_wall(game_classes.Tile):
@@ -643,16 +653,16 @@ class m_slime(game_classes.Monster):
     def __init__(self, x, y):
         super().__init__(x = x,
                         y = y,
+                        tags = [],
                         sprite_list = SPRITESHEET_MONSTERS.images_at([(i*32, 0, 32, 32)for i in range(4)], colorkey = -1),
                         name = 'Slime',
                         maxHp = 10,
                         drops = [(i_minorhealpotion(0, 0), 0.8), (i_bomb(0, 0), 0.8), (i_meat(0, 0), 0.8), (i_throwablebomb(0, 0), 0.8)],
                         actions = { 'turn': [b_crea_simpleturn(self)],
-                                    'move': [b_crea_randommove(self)],
+                                    'move': [b_play_move(self)],
                                     'attack': [b_crea_simpleattack(self)],
                                     'takeDamage': [b_crea_takedamage(self)],
                                     'death': [b_crea_simpledeath(self)] })
-
 
 # SPECIAL ITEMS
 class i_null(game_classes.Item):
@@ -661,6 +671,7 @@ class i_null(game_classes.Item):
         self.name = ''
         self.x = 0
         self.y = 0
+        self.tags = ['item']
         self.description = []
         self.color = game_constants.COLOR_GRAY
         self.sprite_list = None
@@ -670,51 +681,57 @@ class i_equipnull(game_classes.Item):
         self.name = 'None'
         self.x = 0
         self.y = 0
+        self.tag = ['item']
         self.description = []
         self.color = game_constants.COLOR_GRAY
         self.sprite_list = None
+
 # CONSUMABLES
 class i_minorhealpotion(game_classes.Consumable):
     def __init__(self, x, y):
-        super().__init__(x, #X
-                         y, #Y
-                         [SPRITESHEET_CONSUMABLES.image_at((0, 0, 32, 32), game_constants.COLOR_COLORKEY)], #SPRITE
-                         'Minor heal potion', #NAME
-                         game_constants.COLOR_WHITE, #COLOR
-                         1, #WEIGHT
-                         [[('Heals the user.', game_constants.COLOR_WHITE)],
-                         [('* Amount: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_GREEN)]], #DESCRIPTION
-                         [e_flatheal(GAME.player, 10), e_getused(self)], #EFFECTS
-                         useCondition = [c_playnotfullhealth(GAME.player)]) #CONDITION
+        super().__init__(x = x,
+                         y = y,
+                         tags = ['healing', 'potion'],
+                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((0, 0, 32, 32), game_constants.COLOR_COLORKEY)],
+                         name = 'Minor heal potion',
+                         color = game_constants.COLOR_WHITE,
+                         size = 1,
+                         description = [[('Heals the user.', game_constants.COLOR_WHITE)],
+                                    [('* Amount: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_GREEN)]],
+                         effects = [e_flatheal(GAME.player, 10), e_getused(self)],
+                         useCondition = [c_playnotfullhealth(GAME.player)])
 class i_bomb(game_classes.Consumable):
     def __init__(self, x, y):
-        super().__init__(x, #X
-                         y, #Y
-                         [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)], #SPRITE
-                         'Bomb', #NAME
-                         game_constants.COLOR_WHITE, #COLOR
-                         3, #WEIGHT
-                         [[('Drops a bomb under the user\'s feet.', game_constants.COLOR_WHITE)],
-                         [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
-                         [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
-                         [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]], #DESCRIPTION
-                         [e_createbomb(GAME.player, 4, 4, 10), e_getused(self)]) #EFFECTS
+        super().__init__(x = x,
+                         y = y,
+                         tags = ['placeable'],
+                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)],
+                         name = 'Bomb',
+                         color = game_constants.COLOR_WHITE,
+                         size = 3,
+                         description = [[('Drops a bomb under the user\'s feet.', game_constants.COLOR_WHITE)],
+                                     [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
+                                     [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
+                                     [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]],
+                         effects = [e_createbomb(GAME.player, 4, 4, 10), e_getused(self)])
 class i_meat(game_classes.Consumable):
     def __init__(self, x, y):
         super().__init__(x = x,
                          y = y,
+                         tags = ['edible', 'meat'],
                          sprite_list = [SPRITESHEET_CONSUMABLES.image_at((64, 0, 32, 32), game_constants.COLOR_COLORKEY)],
                          name = 'Meat',
                          color = game_constants.COLOR_WHITE,
                          size = 4,
                          description = [[('Replenishes the user food bar.', game_constants.COLOR_WHITE)],
                                     [('* Amount: ', game_constants.COLOR_WHITE), ('10 HP', game_constants.COLOR_GREEN)]],
-                         onUse = [e_eat(GAME.player, 80), e_getused(self)],
+                         effects = [e_eat(GAME.player, 80), e_getused(self)],
                          useCondition = [c_playnotfullhunger(GAME.player)])
 class i_throwablebomb(game_classes.ConsumableMap):
     def __init__(self, x, y):
         super().__init__(x = x,
                          y = y,
+                         tags = [],
                          sprite_list = [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)],
                          name = 'Throwable bomb',
                          color = game_constants.COLOR_WHITE,
@@ -724,19 +741,20 @@ class i_throwablebomb(game_classes.ConsumableMap):
                                      [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
                                      [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
                                      [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]],
-                         onUse = [e_createbomb_l(4, 4, 10), e_getused(self)],
+                         effects = [e_createbomb_l(4, 4, 10), e_getused(self)],
                          initialTarget = c_initonplayer,
                          maxRange = 4)
 class i_thunderrod(game_classes.ConsumableMap):
     def __init__(self, x, y):
         super().__init__(x = x,
                          y = y,
+                         tags = ['rod', 'magical'],
                          sprite_list = [SPRITESHEET_CONSUMABLES.image_at((96, 0, 32, 32), game_constants.COLOR_COLORKEY)],
                          name = 'Lightning rod',
                          color = game_constants.COLOR_WHITE,
                          size = 1,
                          description = [],
-                         onUse = [e_damage_l(5, 'magical', 'lightning'), e_getused(self)],
+                         effects = [e_damage_l(5, 'magical', 'lightning'), e_getused(self)],
                          initialTarget = c_initonplayer,
                          maxRange = 8,
                          targetCondition = [c_creatureinlocation(self)],
@@ -760,8 +778,8 @@ class i_magichelmet(game_classes.Equipment):
     def __init__(self, x, y):
         super().__init__(x = x,
                         y = y,
-                        sprite_list = SPRITESHEET_EQUIPMENT_HEAD.images_at([(i*32, 0, 32, 32) for i in range(4)], colorkey = game_constants.COLOR_COLORKEY) +
-                                    list(reversed(SPRITESHEET_EQUIPMENT_HEAD.images_at([(i*32, 0, 32, 32) for i in range(4)], colorkey = game_constants.COLOR_COLORKEY))),
+                        tags = ['magical'],
+                        sprite_list = SPRITESHEET_EQUIPMENT_HEAD.images_at_loop([(i*32, 0, 32, 32) for i in range(4)], colorkey = game_constants.COLOR_COLORKEY),
                         name = 'Magic helmet',
                         color = game_constants.COLOR_WHITE,
                         size = 6,
@@ -774,8 +792,8 @@ class p_normal(game_classes.Player):
     def __init__(self, x, y):
         super().__init__(x = x,
                         y = y,
-                        sprite_list = [game_constants.SPRITE_PLAYER],
-                        stats =[30, 10, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
+                        sprite_list = SPRITESHEET_PLAYER.images_at_loop([(i*32, 0, 32, 32) for i in range(8)], colorkey = game_constants.COLOR_COLORKEY),
+                        stats = [30, 10, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
                         equipment = [None for i in range(8)],
                         modifiers = [d_play_hunger(self, 11), d_play_health(self, 10)],
                         status = [s_health(self), s_hunger(self)],
@@ -786,3 +804,133 @@ class p_normal(game_classes.Player):
                                     'death': [b_play_death(self)],
                                     'takeDamage': [b_crea_takedamage(self)],
                                     'hunger': [b_play_hunger(self)] })
+
+
+################################################# FUNCTIONS #################################################
+
+
+# MAP GENERATORS
+
+MONSTERS = [m_slime]
+
+def map_init_dungeon(width, height):
+    def path_cost(xFrom, yFrom, xTo, yTo, alg_array):
+        if alg_array[xTo][yTo] == 0:
+            return 1
+        if alg_array[xTo][yTo] == 3:
+            return 0.01
+        else:
+            return 10
+
+    room_prefabs_10x10 = []
+    f = open('resources/map_prefabs/map_prefabs[10x10].csv', 'r').read().split('\n') # 10x10
+    for i in range(len(f[0]) // 10):
+        for j in range(len(f) // 10):
+            room = ''
+            for y in range(10):
+                for x in range(10):
+                    room += f[j*10 + x][i*10 + y]
+            room_prefabs_10x10.append(room)
+    room_prefabs_5x5 = []
+    f = open('resources/map_prefabs/map_prefabs[5x5].csv', 'r').read().split('\n') # 10x10
+    for i in range(len(f[0]) // 5):
+        for j in range(len(f) // 5):
+            room = ''
+            for y in range(5):
+                for x in range(5):
+                    room += f[j*5 + x][i*5 + y]
+            room_prefabs_5x5.append(room)
+
+
+    alg_array = [[0 for j in range(height)] for i in range(width)]
+    terrain = [[0 for j in range(height)] for i in range(width)]
+    items = []
+    entities = []
+    creatures = []
+
+    rooms = []
+    room_exits = []
+    room_connections = []
+    rooms_size = [(10, 10), (5, 5)]
+
+    rooms.append((width//2-3, height//2-3, 6, 6))
+    for x in range(width//2-3, width//2+3):
+        for y in range(height//2-3, height//2+3):
+            if y == height//2 and (x == width//2-3 or x == width//2+3):
+                alg_array[x][y] = 7
+                room_exits.append((x, y, -1))
+            else:
+                alg_array[x][y] = 2
+    available_spots = [(x, y) for x in range(width) for y in range(height) if x > 6 and x < width - 12 and y > 6 and y < height - 12]
+    for x in range(len(available_spots)):
+        append = True
+        i, j = available_spots.pop(random.randint(0, len(available_spots)-1))
+        w, h = random.choice(rooms_size)
+        newRoom = (i, j, w, h) #X, Y, W, H
+        for room in rooms:
+            if game_util.rectangle_intersects(newRoom, room):
+                append = False
+        if append == True:
+            rooms.append(newRoom)
+    for roomIndex in range(len(rooms))[0:]:
+        room = rooms[roomIndex]
+        if room[2] == 10 and room[3] == 10:
+            room_layout = random.choice(room_prefabs_10x10)
+            for x in range(room[2]):
+                for y in range(room[3]):
+                    alg_array[x + room[0]][y + room[1]] = int(room_layout[x*10 + y])
+                    if int(room_layout[x*10 + y]) == 7:
+                        room_exits.append((x + room[0], y + room[1], roomIndex))
+        elif room[2] == 5 and room[3] == 5:
+            room_layout = random.choice(room_prefabs_5x5)
+            for x in range(room[2]):
+                for y in range(room[3]):
+                    alg_array[x + room[0]][y + room[1]] = int(room_layout[x*5 + y])
+                    if int(room_layout[x*5 + y]) == 7:
+                        room_exits.append((x + room[0], y + room[1], roomIndex))
+    for exit_init in room_exits:
+        path = libtcodpy.path_new_using_function(width, height, path_cost, alg_array, 0)
+        other_exits = sorted([exit_other for exit_other in room_exits if exit_other[2] != exit_init[2] and (exit_other[2], exit_init[2]) not in room_connections], key = lambda e: game_util.simpledistance((exit_init[0], exit_init[1]), (e[0], e[1])))
+        if len(other_exits) > 0:
+            exit_end = other_exits[0]
+        else:
+            exit_end = sorted([exit_other for exit_other in room_exits if exit_other[2] != exit_init[2]], key = lambda e: game_util.simpledistance((exit_init[0], exit_init[1]), (e[0], e[1])))[0]
+        room_connections.append((exit_init[2], exit_end[2]))
+        room_connections.append((exit_end[2], exit_init[2]))
+        libtcodpy.path_compute(path, exit_init[0], exit_init[1], exit_end[0], exit_end[1])
+        for i in range(libtcodpy.path_size(path)-1):
+            x, y = libtcodpy.path_get(path, i)
+            alg_array[x][y] = 3
+
+    for x in range(len(alg_array)):
+        for y in range(len(alg_array[x])):
+            if alg_array[x][y] in [0, 1]:
+                terrain[x][y] = t_cave_wall(x, y)
+            else:
+                terrain[x][y] = t_cave_floor(x, y)
+            if alg_array[x][y] == 4:
+                creatures.append(MONSTERS[random.choice(game_constants.MONSTERS_POOL[GAME.level])](x, y))
+            if alg_array[x][y] == 7:
+                entities.append(n_door(x, y, SPRITESHEET_ENTITIES.image_at((0, 32, 32, 32)), SPRITESHEET_ENTITIES.image_at((32, 32, 32, 32), colorkey = game_constants.COLOR_COLORKEY)))
+                terrain[x][y].passable = False
+                terrain[x][y].transparent = False
+    possible_exits = [(x, y) for x in range(2, width-2) for y in range(2, height-2) if (alg_array[x-1][y-1] not in [0, 1] and alg_array[x][y-1] not in [0, 1] and alg_array[x+1][y-1] not in [0, 1] and alg_array[x-1][y] not in [0, 1] and alg_array[x][y] not in [0, 1] and alg_array[x+1][y] not in [0, 1] and alg_array[x-1][y+1] not in [0, 1] and alg_array[x][y+1] not in [0, 1] and alg_array[x+1][y+1] not in [0, 1])]
+    entities.append(n_exit(*random.choice(possible_exits)))
+    print([(entity, entity.x, entity.y) for entity in entities])
+    return terrain, items, entities, creatures
+def map_set_borders(map_array, width, height):
+    for x in range(0, width):
+        map_array[x][0] = t_unbreakable_wall(x, 0)
+        if random.randint(0,2) == 0:
+            map_array[x][0] = t_unbreakable_wall(x, 1)
+        map_array[x][height] = t_unbreakable_wall(x, height)
+        if random.randint(0,2) == 0:
+            map_array[x][height-1] = t_unbreakable_wall(x, height-1)
+    for y in range(0, height):
+        map_array[0][y] = t_unbreakable_wall(0, y)
+        if random.randint(0,2) == 0:
+            map_array[1][y] = t_unbreakable_wall(1, y)
+        map_array[width][y] = t_unbreakable_wall(width, y)
+        if random.randint(0,2) == 0:
+            map_array[width-1][y] = t_unbreakable_wall(width-1, y)
+    return map_array
