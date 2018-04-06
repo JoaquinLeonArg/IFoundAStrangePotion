@@ -9,8 +9,11 @@ GAME_RESOLUTION_WIDTH = 1280 # WINDOW RESOLUTION
 GAME_RESOLUTION_HEIGHT = 720
 
 POPUP_WIDTH = 400
+POPUP_HEIGHT = 336
 POPUP_OFFSET_X = 12
 POPUP_OFFSET_Y = 10
+DESCWINDOW_WIDTH = 430
+DESCWINDOW_HEIGHT = 200
 
 ANIMATION_WAIT = 20
 
@@ -34,7 +37,7 @@ COLOR_ENEMY = (160, 30, 30)
 COLOR_INFO = (100, 100, 100)
 COLOR_HP = (255, 0, 0)
 COLOR_BORDER = (40, 40, 40)
-COLOR_SHADOW = (20, 20, 20)
+COLOR_SHADOW = (10, 10, 10)
 COLOR_HUNGER = (0, 200, 0)
 
 COLOR_COLORKEY = (255, 0, 255)
@@ -42,10 +45,15 @@ COLOR_COLORKEY = (255, 0, 255)
 SPRITE_PLAYER = pygame.image.load('resources/player2.png')
 SPRITE_ENEMY_SLIME = pygame.image.load('resources/enemy_slime.png')
 SPRITE_TITLE = pygame.image.load('resources/title.png')
-SPRITE_DESCRIPTIONWINDOW = pygame.image.load('resources/descriptionwindow.png')
+SPRITE_DESCRIPTIONWINDOW = pygame.image.load('resources/graphics/window_description.png')
 SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
-SPRITE_STATUS = pygame.image.load('resources/status.png')
 SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
+SPRITE_STATUS = pygame.image.load('resources/status.png')
+SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
+
+SPRITE_BACK_68X68 = pygame.image.load('resources/graphics/back_68x68.png')
+
+SPRITE_NULL = pygame.Surface((0, 0))
 
 MAP_WIDTH = [50, 60, 60, 50]
 MAP_HEIGHT = [50, 60, 70, 60]
@@ -53,7 +61,7 @@ MAP_HEIGHT = [50, 60, 70, 60]
 BORDER_THICKNESS = 2
 
 CAMERA_WIDTH = 40
-CAMERA_HEIGHT = 20
+CAMERA_HEIGHT = 18
 
 LIGHT_RADIUS = 8
 MAX_HUNGER = 1000
@@ -79,6 +87,7 @@ KEY_INVENTORY = pygame.K_i
 KEY_EQUIPMENT = pygame.K_e
 KEY_STATS = pygame.K_z
 KEY_STATUS = pygame.K_t
+KEY_SKILLTREE = pygame.K_k
 
 KEY_USE = pygame.K_s
 KEY_CANCEL = pygame.K_c

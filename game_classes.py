@@ -6,6 +6,46 @@ import libtcodpy
 
 pygame.init()
 
+class Window_Description:
+    def __init__(self):
+        self.content_surface = pygame.Surface((game_constants.DESCWINDOW_WIDTH, game_constants.DESCWINDOW_HEIGHT))
+        self.content_surface.set_colorkey(game_constants.COLOR_COLORKEY)
+        self.surface = pygame.Surface((game_constants.DESCWINDOW_WIDTH, game_constants.DESCWINDOW_HEIGHT))
+        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
+        self.reset()
+        self.index = 0
+        self.need_redraw = True
+        self.x = 0
+        self.y = 0
+    def updateInfo(self, icon_list, name, color, typename, content):
+        self.surface.fill(game_constants.COLOR_COLORKEY)
+        self.content_surface.fill(game_constants.COLOR_COLORKEY)
+        self.icon = [pygame.transform.scale2x(icon_list[i]) for i in range(len(icon_list))]
+        self.name = game_constants.FONT_PERFECTDOS.render(name, False, color)
+        self.typename = game_constants.FONT_PERFECTDOS_SMALL.render(typename, False, game_constants.COLOR_WHITE)
+        for lineIndex in range(len(content)):
+            xoffset = 0
+            for element in content[lineIndex]:
+                text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
+                self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
+                xoffset += text.get_width()
+        self.index = 0
+        self.need_redraw = True
+    def update(self):
+        self.index = (self.index + 1) % len(self.icon)
+    def reset(self):
+        self.updateInfo([game_constants.SPRITE_NULL], '', game_constants.COLOR_WHITE, '', [])
+    def draw(self):
+        if self.need_redraw:
+            self.surface.blit(game_constants.SPRITE_DESCRIPTIONWINDOW, (0, 0))
+            self.surface.blit(self.content_surface, (0, 0))
+            self.surface.blit(self.name, (100, 24))
+            self.surface.blit(self.typename, (100, 44))
+            self.surface.blit(game_constants.SPRITE_BACK_68X68, (16, 16))
+            self.surface.blit(self.icon[0], (16, 16)) # 0 is a placeholder, no animation shown
+            self.need_redraw = False
+            GAME.update_rects.append(GAME.surface_windows.blit(self.surface, (self.x, self.y)))
+
 class MainMenu:
     def __init__(self):
         self.timer = 0
@@ -27,40 +67,56 @@ class MainMenu:
         self.update_rects = []
 class Game:
     def __init__(self):
-        self.level = 0
-        self.turn_counter = 0
-        self.map = None
-        self.light_map = None
-        self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_log = pygame.Surface((402, game_constants.WINDOW_HEIGHT - game_constants.CAMERA_HEIGHT*32))
-        self.surface_effects = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_status = pygame.Surface((game_constants.WINDOW_WIDTH - game_constants.LOG_WIDTH, game_constants.WINDOW_HEIGHT - game_constants.CAMERA_HEIGHT*32))
-        self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
+        # Initialization of game structures
         self.log = []
-        self.long_log = False
         self.creatures = []
         self.camera = Camera()
         self.windows = []
-        self.popup_lock = False
         self.items = []
         self.entities = []
-        self.controlsText = game_constants.TEXT_ONMAP
         self.visualeffects = []
         self.visualactiveeffects = []
-        self.surface_effects.fill(game_constants.COLOR_COLORKEY)
-        self.surface_effects.set_colorkey(game_constants.COLOR_COLORKEY)
+        self.descriptionWindow = Window_Description()
+
+        # General
+        self.turn_counter = 0
+        self.controlsText = game_constants.TEXT_ONMAP
+        self.long_log = False
+
+        # Level and map variables
+        self.level = 0
+        self.map = None
+        self.light_map = None
+
+        # Surfaces definition
+        self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
+        self.surface_log = pygame.Surface((402, game_constants.WINDOW_HEIGHT - game_constants.CAMERA_HEIGHT*32))
+        #self.surface_effects = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
+        self.surface_status = pygame.Surface((game_constants.WINDOW_WIDTH - game_constants.LOG_WIDTH, game_constants.WINDOW_HEIGHT - game_constants.CAMERA_HEIGHT*32))
+        self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
+        self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
+
+        # Colorkeys and surface initialization
+        #self.surface_effects.fill(game_constants.COLOR_COLORKEY)
+        #self.surface_effects.set_colorkey(game_constants.COLOR_COLORKEY)
         self.surface_status.set_colorkey(game_constants.COLOR_COLORKEY)
         self.surface_windows.set_colorkey(game_constants.COLOR_COLORKEY)
+        self.surface_windows.set_alpha(None)
         self.surface_entities.fill(game_constants.COLOR_COLORKEY)
         self.surface_entities.set_colorkey(game_constants.COLOR_COLORKEY)
 
+        # Player Movement control
         self.player_moved = False
+        self.movetimer = 10
 
+        # Redraw surfaces control
         self.rd_log = True
         self.rd_sta = True
         self.rd_win = True
-        self.update_rects = []
+        self.update_rects = [] # Currently not used
+
+        # Description Window
+        self.draw_descriptionwindow = False
     def addLogMessage(self, message, color):
         self.log.insert(0, (message, color))
         self.rd_log = True
@@ -80,16 +136,17 @@ class Game:
         self.creatures.sort(key = lambda c: c.priority)
     def generateMap(self, gen_function):
         self.map, self.items, self.entities, self.creatures = gen_function(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
-        self.map_light_init()
+        self.lightmapInit()
         self.player.x = game_constants.MAP_WIDTH[self.level]//2
         self.player.y = game_constants.MAP_HEIGHT[self.level]//2
         self.creatures.append(self.player)
         game_util.map_light_update(self.light_map)
-    def map_light_init(self):
+    def lightmapInit(self):
         self.light_map = libtcodpy.map_new(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
         for x in range(game_constants.MAP_WIDTH[self.level]):
             for y in range(game_constants.MAP_HEIGHT[self.level]):
                 libtcodpy.map_set_properties(self.light_map, x, y, self.map[x][y].transparent, self.map[x][y].passable)
+
 class Spritesheet(object):
     def __init__(self, filename):
         self.sheet = pygame.image.load(filename).convert()
@@ -117,8 +174,8 @@ class Tile:
         self.passable = passable
         self.transparent = transparent
         self.damage = damage
-        self.sprite = sprite
-        self.sprite_shadow = sprite_shadow
+        self.sprite = sprite.convert()
+        self.sprite_shadow = sprite_shadow.convert()
         self.discovered = False
     def onDestroy(self):
         return
@@ -173,102 +230,78 @@ class ObjectMovement(VisualEffect):
         else:
             self.visible = False
 class Window:
-    def __init__(self, parent, active, visible, image):
-        self.x = game_constants.CAMERA_WIDTH*32 - game_constants.POPUP_WIDTH - game_constants.BORDER_THICKNESS*2
-        self.y = 0
-        self.width = game_constants.POPUP_WIDTH
-        self.height = game_constants.CAMERA_HEIGHT*32
-        self.surface = pygame.Surface((self.width, self.height))
-        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.active = active
-        self.visible = visible
+    def __init__(self, x, y, sprite):
+        self.x = x
+        self.y = y
+        self.sprite = sprite.convert()
+        self.surface = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()))
+        self.parent = None
         self.redraw = True
-        self.parent = parent
-        self.image = image
-        self.descriptionWindow = None
+        self.visible = True
+        self.active = True
         GAME.rd_win = True
+        GAME.player.active = False
     def draw(self):
-        if self.visible:
-            self.surface.fill(game_constants.COLOR_COLORKEY)
-            if self.image != None:
-                self.surface.blit(self.image, (0, 0))
-            if self.title != '':
-                game_util.draw_text(self.surface, self.title, game_constants.POPUP_OFFSET_X, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
-    def input(self):
-        GAME.rd_win = True
+        if not self.visible:
+            return
+        if self.redraw:
+            self.update()
+        GAME.surface_windows.blit(self.surface, (self.x, self.y))
+    def update(self):
+        self.surface.blit(self.sprite, (0, 0))
     def destroy(self):
         if self in GAME.windows:
             GAME.windows.remove(self)
-        if self.descriptionWindow in GAME.windows and self.descriptionWindow != None:
-            self.descriptionWindow.destroy()
         if self.parent == None:
             GAME.player.active = True
-        self.active = False
-        GAME.surface_windows.fill(game_constants.COLOR_COLORKEY)
         GAME.rd_win = True
-class WindowSelectable(Window):
-    def __init__(self, parent, height, title, active, visible, image, bitems, binput, bquantity = None, descriptionWindow = None, itemType = 0):
-        super().__init__(parent, active, visible, image)
-        self.itemType = itemType
-        self.height = height
-        self.title = title
-        self.bitems = bitems(self)
-        if bquantity:
-            self.bquantity = bquantity(self)
-        else:
-            self.bquantity = None
-        self.binput = [action(self) for action in binput]
-        self.getItems()
-        if self.parent == None:
-            self.y = game_constants.CAMERA_HEIGHT*32 - self.height - game_constants.BORDER_THICKNESS*2
-        else:
-            self.y = self.parent.y - self.height - 4
-        self.index = 0
-        GAME.player.active = False
-        if descriptionWindow != None:
-            self.descriptionWindow = descriptionWindow(self)
-            self.descriptionWindow.item = self.items[0]
-        else:
-            self.descriptionWindow = None
     def input(self, key):
-        super().input()
-        for action in self.binput:
-            action.execute(key)
-    def draw(self):
-        super().draw()
-        if self.visible and len(self.items) > 0:
-            if len(self.items) > 0:
-                if self.title == None:
-                    yoffset = 0
-                else:
-                    yoffset = 32
-                self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16+yoffset, self.width - 8, 16))
-                if self.itemType == 0:
-                    for itemIndex in range(len(self.items)):
-                        game_util.draw_text(self.surface, self.items[itemIndex].name, game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex].color)
-                        if len(self.quantities) == len(self.items):
-                            text = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_WHITE)
-                            text_shadow = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_SHADOW)
-                            self.surface.blit(text_shadow, (self.width - text.get_width() - 4+2, itemIndex*16+yoffset+2))
-                            self.surface.blit(text, (self.width - text.get_width() - 4, itemIndex*16+yoffset))
-                elif self.itemType == 1:
-                    for itemIndex in range(len(self.items)):
-                        game_util.draw_text(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16+yoffset, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1])
-                        if len(self.quantities) == len(self.items):
-                            text = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_WHITE)
-                            text_shadow = game_constants.FONT_PERFECTDOS.render(str(self.quantities[itemIndex]), False, game_constants.COLOR_SHADOW)
-                            self.surface.blit(text_shadow, (self.width - text.get_width() - 4+2, itemIndex*16+yoffset+2))
-                            self.surface.blit(text, (self.width - text.get_width() - 4, itemIndex*16+yoffset))
-                GAME.surface_windows.blit(self.surface, (self.x, self.y))
-        else:
-            GAME.controlsText = game_constants.TEXT_ONMAP
+        pass
+class WindowList(Window):
+    def __init__(self, x, y, sprite, descriptable):
+        super().__init__(x, y, sprite)
+        self.index = 0
+        self.getItems()
+    def input(self, key):
+        super().input(key)
+        self.getItems()
+        self.basicControls(key)
+        self.redraw = True
+        GAME.rd_win = True
+    def basicControls(self, key):
+        if key == 'up':
+            self.index = (self.index - 1) % len(self.items)
+        elif key == 'down':
+            self.index = (self.index + 1) % len(self.items)
+        elif key == 'cancel':
             self.destroy()
     def getItems(self):
-        self.items = self.bitems.execute()
-        if self.bquantity != None:
-            self.quantities = self.bquantity.execute()
-        else:
-            self.quantities = []
+        self.items = []
+    def update(self):
+        super().update()
+    # def updateDescription(self):
+    #     if self.needDesc:
+    #         GAME.descriptionWindow.x = self.x - game_constants.DESCWINDOW_WIDTH
+    #         GAME.descriptionWindow.y = min(self.index*16+self.yoffset + 32, game_constants.CAMERA_HEIGHT*32 - game_constants.DESCWINDOW_HEIGHT)
+class WindowPopup(WindowList):
+    def __init__(self, parent_window, x, y, sprite, options_list):
+        super().__init__(x, y, sprite, False)
+        self.parent_window = parent_window
+        self.options = options_list
+    def input(self, key):
+        self.basicControls(key)
+        self.redraw = True
+        GAME.rd_win = True
+    def self.basicControls(self, key):
+        if key == 'up':
+            self.index = (self.index - 1) % len(self.items)
+        elif key == 'down':
+            self.index = (self.index + 1) % len(self.items)
+        elif key == 'cancel':
+            self.parent_window.active = True
+            self.destroy()
+    def getItems(self):
+        self.items = options_list
 class Entity:
     def __init__(self, x, y, tags, sprite_list):
         self.x = x
@@ -315,10 +348,11 @@ class Creature(Entity):
         for action in self.actions['death']:
             action.execute()
 class Player(Creature):
-    def __init__(self, x, y, sprite_list, stats, equipment, modifiers, status, actions):
+    def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, modifiers, status, actions, skilltree):
         super().__init__(x, y, ['player'], sprite_list, actions)
         self.inventory = []
         self.name = 'Player'
+        self.portrait_list = portrait_list
         self.xp = 0
         self.level = 1
         self.equipment = equipment
@@ -331,9 +365,12 @@ class Player(Creature):
         self.active = True
         self.priority = 2
 
+        self.potion = None
+
         self.modifiers = modifiers
         self.status = status
         self.actions = actions
+        self.skilltree = skilltree
     def input(self, key):
         if self.active:
             if key == 'up':
@@ -434,7 +471,36 @@ class ConsumableMap(Consumable):
             action.execute(x, y)
         if self.used:
             GAME.player.inventory.remove(self)
+class Potion():
+    def __init__(self, name, sprite_list, actions, conditions, startCharges, maxCharges, description):
+        self.name = name
+        self.sprite_list = sprite_list
+        self.actions = actions
+        self.conditions = conditions
+        self.charges = startCharges
+        self.maxCharges = maxCharges
+        self.description = description
+    def drink(self):
+        if self.charges > 0 and all([condition.execute() for condition in self.conditions]):
+            for action in self.actions:
+                action.execute()
+            self.charges -= 1
+
 class Component:
     def __init__(self, parent, priority = 0):
         self.parent = parent
         self.priority = priority
+class Skill:
+    def __init__(self, index, pos, name, description, sprite, move, req, maxRank):
+        self.index = index
+        self.x , self.y = pos
+        self.name = name
+        self.description = description
+        self.sprite = sprite
+        self.move = move
+        self.req = req
+        self.maxRank = maxRank
+        self.rank = 0
+    def onBuy(self):
+        if self.maxRank != -1:
+            self.rank += 1

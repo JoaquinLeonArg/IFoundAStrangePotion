@@ -17,127 +17,176 @@ SPRITESHEET_ENTITIES = game_classes.Spritesheet('resources/entities.png')
 SPRITESHEET_ICONS = game_classes.Spritesheet('resources/icons.png')
 SPRITESHEET_MONSTERS = game_classes.Spritesheet('resources/graphics/monsters_animated.png')
 SPRITESHEET_EQUIPMENT_HEAD = game_classes.Spritesheet('resources/graphics/equipment_head_animated.png')
+SPRITESHEET_PORTRAITS = game_classes.Spritesheet('resources/graphics/character_faces.png')
+SPRITESHEET_SKILLICONS = game_classes.Spritesheet('resources/graphics/skill_icons.png')
 
 ################################################# CLASSES #################################################
 
 # WINDOWS
-class Window_PlayerInventory(game_classes.WindowSelectable):
+class Window_PlayerInventory(game_classes.WindowList):
+    class Popup(game_classes.WindowList):
+        pass
     def __init__(self):
-        super().__init__(None, 336, 'Equipment', True, True, game_constants.SPRITE_ITEMSWINDOW, w_inventory_items, [w_arrowkeys_input, w_inventory_input, w_update_description], bquantity = w_inventory_quantities, descriptionWindow = Window_Description, itemType = 0)
-class Window_PlayerEquipment(game_classes.WindowSelectable):
-    def __init__(self):
-        super().__init__(None, 336, 'Inventory', True, True, game_constants.SPRITE_ITEMSWINDOW, w_inventory_items, [w_arrowkeys_input, w_inventory_input, w_update_description], bquantity = w_inventory_quantities, descriptionWindow = Window_Description, itemType = 0)
-class Window_SearchInventory(game_classes.WindowSelectable):
-    def __init__(self):
-        super().__init__(None, 336, 'Found items', True, True, game_constants.SPRITE_ITEMSWINDOW, w_search_items, [w_arrowkeys_input, w_search_input, w_update_description], descriptionWindow = Window_Description, itemType = 0)
-class Window_Status(game_classes.WindowSelectable):
-    def __init__(self):
-        super().__init__(None, 336, 'Status', True, True, game_constants.SPRITE_ITEMSWINDOW, w_status_items, [w_arrowkeys_input, w_status_input], w_status_quantities, itemType = 1)
-class Window_SelectTarget(game_classes.WindowSelectable):
-    def __init__(self, parent, item):
-        self.parent = parent
-        self.item = item
-        self.x, self.y = self.item.initialTarget.execute()
-        self.surface = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface.set_alpha(50)
-        self.active = True
-        self.visible = True
-        self.image = SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)
-        for window in GAME.windows:
-            if window is not self:
-                window.visible = False
-        self.descriptionWindow = None
-    def draw(self):
-        if self.visible:
-            self.surface.fill(game_constants.COLOR_COLORKEY)
-            for x in range(GAME.player.x - self.item.maxRange, GAME.player.x + self.item.maxRange+1):
-                for y in range(GAME.player.y - self.item.maxRange, GAME.player.y + self.item.maxRange+1):
-                    if self.item.targetCondition(x, y) and game_util.simpledistance((GAME.player.x, GAME.player.y), (x, y)) <= self.item.maxRange:
-                        self.surface.fill(game_constants.COLOR_GREEN, pygame.Rect((x*32 - GAME.camera.x), (y*32 - GAME.camera.y), 32, 32))
-            self.surface.blit(self.image, ((self.x*32 - GAME.camera.x), (self.y*32 - GAME.camera.y)))
-            GAME.update_rects.append(GAME.surface_map.blit(self.surface, (0, 0)))
+        super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
     def input(self, key):
-        GAME.rd_win = True
-        if key == 'up':
-            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y - 1)) <= self.item.maxRange:
-                self.y -= 1
-        if key == 'down':
-            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y + 1)) <= self.item.maxRange:
-                self.y += 1
-        if key == 'left':
-            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x - 1, self.y)) <= self.item.maxRange:
-                self.x -= 1
-        if key == 'right':
-            if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x + 1, self.y)) <= self.item.maxRange:
-                self.x += 1
+        super().input(key)
         if key == 'use':
-            if self.item.targetCondition(self.x, self.y):
-                self.item.use(self.x, self.y)
-                self.parent.destroy()
-                self.destroy()
-                self.parent.parent.getItems()
-                self.parent.parent.active = True
-                self.parent.parent.visible = True
-                if self.parent.parent.index > 0:
-                    self.parent.parent.index -= 1
-                GAME.action = 'item'
-                GAME.controlsText = game_constants.TEXT_ONINVENTORY
-        if key == 'cancel':
-            self.parent.destroy()
-            self.destroy()
-            self.parent.parent.getItems()
-            self.parent.parent.active = True
-            self.parent.parent.visible = True
-            if self.parent.parent.index > 0:
-                self.parent.parent.index -= 1
-            GAME.action = 'item'
-            GAME.controlsText = game_constants.TEXT_ONINVENTORY
-class Window_Description(game_classes.Window):
-    def __init__(self, parent):
-        self.parent = parent
-        self.itemType = self.parent.itemType
-        self.item = None
-        self.visible = True
-        self.active = False
-        self.redraw = True
-        self.x = game_constants.BORDER_THICKNESS*2
-        self.y = 300
-        self.width = game_constants.POPUP_WIDTH
-        self.height = game_constants.CAMERA_HEIGHT*32 - self.y - game_constants.BORDER_THICKNESS*2
-        self.surface = pygame.Surface((self.width, self.height))
-        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.descriptionWindow = None
-        GAME.windows.append(self)
-    def draw(self):
-        if self.visible:
-            self.surface.blit(game_constants.SPRITE_DESCRIPTIONWINDOW, (0, 0))
-            if self.itemType == 0:
-                if self.item.sprite_list != None:
-                    self.surface.blit(pygame.transform.scale2x(self.item.sprite), (16, 16))
-                game_util.draw_text(self.surface, self.item.name, 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item.color)
-                game_util.draw_text(self.surface, self.item.itemType, 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
-                for lineIndex in range(len(self.item.description)):
-                    xoffset = 0
-                    for element in self.item.description[lineIndex]:
-                        text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
-                        self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
-                        xoffset += text.get_width()
-            elif self.itemType == 1:
-                if self.item[2] != None:
-                    self.surface.blit(pygame.transform.scale2x(self.item[2]), (16, 16))
-                game_util.draw_text(self.surface, self.item[0], 112, 24, game_constants.FONT_PERFECTDOS_MEDIUM, self.item[1])
-                game_util.draw_text(self.surface, self.item[3], 112, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
-                for lineIndex in range(len(self.item[4])):
-                    xoffset = 0
-                    for element in self.item[4][lineIndex]:
-                        text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
-                        self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
-                        xoffset += text.get_width()
-            GAME.update_rects.append(GAME.surface_windows.blit(self.surface, (self.x, self.y)))
-class Window_Equipment(game_classes.WindowSelectable):
-    def __init__(self):
-        super().__init__(None, 336, 'Equipment', True, True, game_constants.SPRITE_ITEMSWINDOW, w_equipment_items, [w_arrowkeys_input, w_equipment_input, w_update_description], descriptionWindow = Window_Description, itemType = 0)
+            if GAME.player.inventory[self.index].itemType == 'consumable':
+                self.
+                # GAME.controlsText = game_constants.TEXT_ONPOPUP
+            elif GAME.player.inventory[self.index].itemType == 'equipment':
+                pass
+                # POPUP WINDOW HERE
+            # GAME.windows.append(self.popupwindow)
+            self.active = False
+        elif key == 'cancel':
+            GAME.player.active = True
+            # GAME.controlsText = game_constants.TEXT_ONMAP
+    def update(self):
+        super().update()
+        game_util.draw_text_bg(self.surface, 'Inventory', game_constants.POPUP_OFFSET_X + 4, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW) # Draw title
+        self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
+        for itemIndex in range(len(self.items)): # Draw item names
+            game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
+    def getItems(self):
+        self.items = [(item.sprite_list, item.name, item.color, item.itemType, item.description) for item in GAME.player.inventory]
+
+
+
+
+
+# class Window_PlayerEquipment(game_classes.WindowSelectable):
+#     def __init__(self):
+#         super().__init__(None, 336, 'Inventory', True, True, game_constants.SPRITE_ITEMSWINDOW, w_inventory_items, [w_arrowkeys_input, w_inventory_input, w_update_description], bquantity = w_inventory_quantities, itemType = 0)
+# class Window_SearchInventory(game_classes.WindowSelectable):
+#     def __init__(self):
+#         super().__init__(None, 336, 'Found items', True, True, game_constants.SPRITE_ITEMSWINDOW, w_search_items, [w_arrowkeys_input, w_search_input, w_update_description], itemType = 0)
+# class Window_Status(game_classes.WindowSelectable):
+#     def __init__(self):
+#         super().__init__(None, 336, 'Status', True, True, game_constants.SPRITE_ITEMSWINDOW, w_status_items, [w_arrowkeys_input, w_status_input], w_status_quantities, itemType = 1)
+# class Window_SelectTarget(game_classes.WindowSelectable):
+#     def __init__(self, parent, item):
+#         self.parent = parent
+#         self.item = item
+#         self.x, self.y = self.item.initialTarget.execute()
+#         self.surface = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
+#         self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
+#         self.surface.set_alpha(50)
+#         self.active = True
+#         self.visible = True
+#         self.image = SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)
+#         for window in GAME.windows:
+#             if window is not self:
+#                 window.visible = False
+#     def draw(self):
+#         if self.visible:
+#             self.surface.fill(game_constants.COLOR_COLORKEY)
+#             for x in range(GAME.player.x - self.item.maxRange, GAME.player.x + self.item.maxRange+1):
+#                 for y in range(GAME.player.y - self.item.maxRange, GAME.player.y + self.item.maxRange+1):
+#                     if self.item.targetCondition(x, y) and game_util.simpledistance((GAME.player.x, GAME.player.y), (x, y)) <= self.item.maxRange:
+#                         self.surface.fill(game_constants.COLOR_GREEN, pygame.Rect((x*32 - GAME.camera.x), (y*32 - GAME.camera.y), 32, 32))
+#             self.surface.blit(self.image, ((self.x*32 - GAME.camera.x), (self.y*32 - GAME.camera.y)))
+#             GAME.update_rects.append(GAME.surface_map.blit(self.surface, (0, 0)))
+#     def input(self, key):
+#         GAME.rd_win = True
+#         if key == 'up':
+#             if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y - 1)) <= self.item.maxRange:
+#                 self.y -= 1
+#         if key == 'down':
+#             if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x, self.y + 1)) <= self.item.maxRange:
+#                 self.y += 1
+#         if key == 'left':
+#             if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x - 1, self.y)) <= self.item.maxRange:
+#                 self.x -= 1
+#         if key == 'right':
+#             if game_util.simpledistance((GAME.player.x, GAME.player.y), (self.x + 1, self.y)) <= self.item.maxRange:
+#                 self.x += 1
+#         if key == 'use':
+#             if self.item.targetCondition(self.x, self.y):
+#                 self.item.use(self.x, self.y)
+#                 self.parent.destroy()
+#                 self.destroy()
+#                 self.parent.parent.getItems()
+#                 self.parent.parent.active = True
+#                 self.parent.parent.visible = True
+#                 if self.parent.parent.index > 0:
+#                     self.parent.parent.index -= 1
+#                 GAME.action = 'item'
+#                 GAME.controlsText = game_constants.TEXT_ONINVENTORY
+#         if key == 'cancel':
+#             self.parent.destroy()
+#             self.destroy()
+#             self.parent.parent.getItems()
+#             self.parent.parent.active = True
+#             self.parent.parent.visible = True
+#             if self.parent.parent.index > 0:
+#                 self.parent.parent.index -= 1
+#             GAME.action = 'item'
+#             GAME.controlsText = game_constants.TEXT_ONINVENTORY
+# class Window_Equipment(game_classes.WindowSelectable):
+#     def __init__(self):
+#         super().__init__(None, 336, 'Equipment', True, True, game_constants.SPRITE_ITEMSWINDOW, w_equipment_items, [w_arrowkeys_input, w_equipment_input, w_update_description], itemType = 0)
+# class Window_SkillTree(game_classes.WindowSelectable):
+#     def __init__(self):
+#         self.x = game_constants.CAMERA_WIDTH*16 - 450
+#         self.y = game_constants.CAMERA_HEIGHT*16 - 275
+#         self.visible = True
+#         self.active = True
+#         self.parent = None
+#         self.surface = pygame.Surface((900, 550))
+#         self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
+#         GAME.rd_win = True
+#         GAME.player.active = False
+#         self.index = 0
+#         self.redraw = True
+#         self.image = game_constants.SPRITE_SKILLTREE.convert()
+#     def draw(self):
+#         if self.visible and self.redraw:
+#             self.surface.fill(game_constants.COLOR_COLORKEY)
+#             self.surface.blit(self.image, (0, 0))
+#             current_skill = next(skill for skill in GAME.player.skilltree if skill.index == self.index)
+#             for skill in GAME.player.skilltree:
+#                 for skill_index in skill.req:
+#                     other_skill = next(skill for skill in GAME.player.skilltree if skill.index == skill_index)
+#                     if other_skill.rank == other_skill.maxRank:
+#                         color = game_constants.COLOR_WHITE
+#                     else:
+#                         color = game_constants.COLOR_GRAY
+#                     pygame.draw.line(self.surface, color, (skill.x*32 + 48, skill.y*32 + 64), (other_skill.x*32 + 48, other_skill.y*32 + 96), 3)
+#                 self.surface.blit(skill.sprite, (skill.x*32 + 32, skill.y*32 + 64))
+#                 if skill == current_skill:
+#                     color = game_constants.COLOR_WHITE
+#                 elif skill.rank == skill.maxRank:
+#                     color = game_constants.COLOR_YELLOW
+#                 elif skill.rank > 0:
+#                     color = game_constants.COLOR_GREEN
+#                 else:
+#                     color = game_constants.COLOR_GRAY
+#                 pygame.draw.rect(self.surface, color, (skill.x*32 + 32, skill.y*32 + 64, 32, 32), 3)
+#             GAME.surface_windows.blit(self.surface.convert(), (self.x, self.y))
+#             self.redraw = False
+#     def input(self, key):
+#         GAME.rd_win = True
+#         self.redraw = True
+#         current_skill = next(skill for skill in GAME.player.skilltree if skill.index == self.index)
+#         if key == 'use' and current_skill.rank < current_skill.maxRank:
+#             for skill_index in current_skill.req:
+#                 skill_check = next(skill for skill in GAME.player.skilltree if skill.index == skill_index)
+#                 if skill_check.rank < skill_check.maxRank:
+#                     return
+#             current_skill.onBuy()
+#         if key == 'left' and current_skill.move[0] != None:
+#             self.index = current_skill.move[0]
+#         if key == 'right' and current_skill.move[1] != None:
+#             self.index = current_skill.move[1]
+#         if key == 'up' and current_skill.move[2] != None:
+#             self.index = current_skill.move[2]
+#         if key == 'down' and current_skill.move[3] != None:
+#             self.index = current_skill.move[3]
+#         if key == 'cancel':
+#             self.destroy()
+# class Window_Potion
+
 
 class w_arrowkeys_input(game_classes.Component):
     def execute(self, key):
@@ -150,7 +199,10 @@ class w_arrowkeys_input(game_classes.Component):
 class w_update_description(game_classes.Component):
     def execute(self, key):
         if len(self.parent.items) > 0:
-            self.parent.descriptionWindow.item = self.parent.items[self.parent.index]
+            item = self.parent.items[self.parent.index]
+            GAME.descriptionWindow.updateInfo(item.sprite_list, item.name, item.color, item.itemType, item.description)
+            GAME.draw_descriptionwindow = True
+            self.parent.updateDescription()
 class w_inventory_items(game_classes.Component):
     def execute(self):
         return [item for item in GAME.player.inventory]
@@ -206,7 +258,8 @@ class w_popupinventorye_input(game_classes.Component):
                 self.parent.parent.active = True
                 self.parent.destroy()
             if len(self.parent.parent.items) > 0:
-                self.parent.parent.descriptionWindow.item = self.parent.parent.items[self.parent.parent.index]
+                item = self.parent.parent.items[self.parent.parent.index]
+                GAME.descriptionWindow.updateInfo(item.sprite_list, item.name, item.color, item.itemType, item.description)
         if key == 'cancel':
             self.parent.parent.active = True
             GAME.controlsText = game_constants.TEXT_ONINVENTORY
@@ -250,7 +303,8 @@ class w_popupinventoryc_input(game_classes.Component):
                 GAME.controlsText = game_constants.TEXT_ONINVENTORY
                 self.parent.destroy()
             if len(self.parent.parent.items) > 0:
-                self.parent.parent.descriptionWindow.item = self.parent.parent.items[self.parent.parent.index]
+                item = self.parent.parent.items[self.parent.parent.index]
+                GAME.descriptionWindow.updateInfo(item.sprite_list, item.name, item.color, item.itemType, item.description)
         if key == 'cancel':
             self.parent.parent.active = True
             GAME.controlsText = game_constants.TEXT_ONINVENTORY
@@ -302,7 +356,7 @@ class w_equipment_items(game_classes.Component):
 class w_equipment_input(game_classes.Component):
     def execute(self, key):
         if key == 'use':
-            self.parent.popupwindow = game_classes.WindowSelectable(self.parent, 112, '', True, True, game_constants.SPRITE_OPTIONSWINDOW, w_popupequipment_items, [w_arrowkeys_input, w_popupequipment_input, w_update_description], itemType = 0, descriptionWindow = Window_Description)
+            self.parent.popupwindow = game_classes.WindowSelectable(self.parent, 112, '', True, True, game_constants.SPRITE_OPTIONSWINDOW, w_popupequipment_items, [w_arrowkeys_input, w_popupequipment_input, w_update_description], itemType = 0)
             GAME.windows.append(self.parent.popupwindow)
             self.parent.active = False
             GAME.controlsText = game_constants.TEXT_ONPOPUP
@@ -352,6 +406,7 @@ class b_play_move(game_classes.Component):
             if entity.x == self.parent.x + dx and entity.y == self.parent.y + dy and 'openable' in entity.tags:
                 if not entity.isOpen:
                     entity.open()
+                    GAME.movetimer = 15
                     return
         if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
             if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
@@ -787,13 +842,29 @@ class i_magichelmet(game_classes.Equipment):
                         slot = 2,
                         actionEquipment = i_magichelmet_action)
 
+# SKILL TREES
+class skill_healthup(game_classes.Skill):
+    def __init__(self, index, pos, move, req, maxRank):
+        super().__init__(index, pos, 'Health Up', [], SPRITESHEET_SKILLICONS.image_at((0, 0, 32, 32)), move, req, maxRank)
+    def onBuy(self):
+        super().onBuy()
+        GAME.player.baseStats[0] += 20*self.rank
+class skill_fullheal(game_classes.Skill):
+    def __init__(self, index, pos, move, req, maxRank):
+        super().__init__(index, pos, 'Full Heal', [], SPRITESHEET_SKILLICONS.image_at((0, 0, 32, 32)), move, req, maxRank)
+    def onBuy(self):
+        super().onBuy()
+        GAME.player.hp = GAME.player.stats[0]
+
+
 # PLAYABLE CHARACTERS
 class p_normal(game_classes.Player):
     def __init__(self, x, y):
         super().__init__(x = x,
                         y = y,
                         sprite_list = SPRITESHEET_PLAYER.images_at_loop([(i*32, 0, 32, 32) for i in range(8)], colorkey = game_constants.COLOR_COLORKEY),
-                        stats = [30, 10, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
+                        portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
+                        stats = [200, 9999, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
                         equipment = [None for i in range(8)],
                         modifiers = [d_play_hunger(self, 11), d_play_health(self, 10)],
                         status = [s_health(self), s_hunger(self)],
@@ -803,7 +874,14 @@ class p_normal(game_classes.Player):
                                     'attack': [b_crea_simpleattack(self)],
                                     'death': [b_play_death(self)],
                                     'takeDamage': [b_crea_takedamage(self)],
-                                    'hunger': [b_play_hunger(self)] })
+                                    'hunger': [b_play_hunger(self)] },
+                        skilltree = [skill_healthup(0, (8, 0), (None, None, None, 1), [], 3),
+                                    skill_fullheal(1, (8, 2), (None, None, 0, None), [0], 1),
+                                    skill_fullheal(2, (18, 0), (None, None, 0, None), [], 1),
+                                    skill_fullheal(3, (16, 2), (None, None, 0, None), [2], 1),
+                                    skill_fullheal(4, (20, 2), (None, None, 0, None), [2], 1),
+                                    skill_fullheal(5, (20, 4), (None, None, 0, None), [4], 1),
+                        ])
 
 
 ################################################# FUNCTIONS #################################################
@@ -916,7 +994,6 @@ def map_init_dungeon(width, height):
                 terrain[x][y].transparent = False
     possible_exits = [(x, y) for x in range(2, width-2) for y in range(2, height-2) if (alg_array[x-1][y-1] not in [0, 1] and alg_array[x][y-1] not in [0, 1] and alg_array[x+1][y-1] not in [0, 1] and alg_array[x-1][y] not in [0, 1] and alg_array[x][y] not in [0, 1] and alg_array[x+1][y] not in [0, 1] and alg_array[x-1][y+1] not in [0, 1] and alg_array[x][y+1] not in [0, 1] and alg_array[x+1][y+1] not in [0, 1])]
     entities.append(n_exit(*random.choice(possible_exits)))
-    print([(entity, entity.x, entity.y) for entity in entities])
     return terrain, items, entities, creatures
 def map_set_borders(map_array, width, height):
     for x in range(0, width):

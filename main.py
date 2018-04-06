@@ -11,8 +11,9 @@ import sys
 def game_init():
     global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
     pygame.init()
-    GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT))
+    GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
     SCREEN = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
+
     pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
 
     import game_classes
@@ -21,7 +22,6 @@ def game_init():
     STATE = 0
 
     pygame.display.set_caption('I found a strange potion')
-    SCREEN.set_alpha(None)
 
     MENU = game_classes.MainMenu()
     GAME = game_classes.Game()
@@ -40,7 +40,10 @@ def game_loop():
             menu_input()
         elif STATE == 9:
             GAME.action = 'none'
+            if GAME.movetimer > 0:
+                GAME.movetimer -= 1
             game_input()
+            GAME.descriptionWindow.update()
             for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
                 entity.update_frame()
             if GAME.action != 'none':
@@ -50,12 +53,12 @@ def game_loop():
                 GAME.turn_counter += 1
             GAME.camera.update(GAME.player.x*32, GAME.player.y*32)
             draw_game()
-        CLOCK.tick(60)
+        CLOCK.tick()
 def game_input():
     events = pygame.event.get();
     keystates = pygame.key.get_pressed()
 
-    if len(GAME.visualactiveeffects) == 0:
+    if len(GAME.visualactiveeffects) == 0 and GAME.movetimer == 0:
         if GAME.player.active and keystates[pygame.K_UP]:
             GAME.player.input('up')
             GAME.rd_sta = True
@@ -104,6 +107,11 @@ def game_input():
                 if event.key == game_constants.KEY_EQUIPMENT:
                     if GAME.windows == []:
                         GAME.windows.append(game_content.Window_Equipment())
+                        GAME.controlsText = game_constants.TEXT_ONEQUIPMENT
+                        GAME.rd_win = True
+                if event.key == game_constants.KEY_SKILLTREE:
+                    if GAME.windows == []:
+                        GAME.windows.append(game_content.Window_SkillTree())
                         GAME.controlsText = game_constants.TEXT_ONEQUIPMENT
                         GAME.rd_win = True
 
@@ -188,7 +196,7 @@ def menu_input():
 
 # DRAW
 def draw_game():
-    SCREEN.fill([255,255,255])
+    #SCREEN.fill([255,255,255])
 
     if GAME.rd_log: # CHECK IF SURFACE_LOG NEEDS TO BE REDRAWN
         draw_log()
@@ -199,15 +207,18 @@ def draw_game():
     draw_map()
     if GAME.rd_win: # CHECK IF SURFACE_WINDOWS NEEDS TO BE REDRAWN
         draw_windows()
+        if GAME.draw_descriptionwindow:
+            GAME.descriptionWindow.draw()
         GAME.rd_win = False
     draw_entities() # SAME AS EFFECTS
 
     # BLIT ALL SURFACES INTO THE MAIN SURFACE
-    for surface in [GAME.surface_map, GAME.surface_effects, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 0)
+    # , GAME.surface_effects
+    for surface in [GAME.surface_map, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 0)
         SCREEN.blit(surface, (0, 0))
+    draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
     GAME.update_rects.append(SCREEN.blit(GAME.surface_log, (0, game_constants.CAMERA_HEIGHT*32)))
     GAME.update_rects.append(SCREEN.blit(GAME.surface_status, (game_constants.LOG_WIDTH + 4, game_constants.CAMERA_HEIGHT*32))) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
-    draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
 
     # FOR DEBUG PURPOSES
     GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 10, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
@@ -250,34 +261,36 @@ def draw_log():
 def draw_status():
     GAME.surface_status.blit(game_constants.SPRITE_STATUS, (0, 0))
 
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (16, 8)) #DRAW HP
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(48, 8, 200, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, pygame.Rect(48, 8, 200*GAME.player.hp/GAME.player.stats[0], 13))
+    GAME.surface_status.blit(GAME.player.portrait_list[0], (38, 22))
+
+    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 16)) #DRAW HP
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 16, 200, 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, pygame.Rect(248, 16, 200*GAME.player.hp/GAME.player.stats[0], 13))
     text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.hp), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (256, 8))
+    GAME.surface_status.blit(text, (462, 16))
     text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.stats[0]), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (330 - text.get_width(), 8))
+    GAME.surface_status.blit(text, (546 - text.get_width(), 16))
 
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 16, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (16, 32)) #DRAW MANA
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(48, 32, 200, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_CYAN, pygame.Rect(48, 32, 200*GAME.player.mana/GAME.player.stats[1], 13))
+    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 16, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 40)) #DRAW MANA
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 40, 200, 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_CYAN, pygame.Rect(248, 40, 200*GAME.player.mana/GAME.player.stats[1], 13))
     text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.mana), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (256, 32))
+    GAME.surface_status.blit(text, (462, 40))
     text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.stats[1]), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (330 - text.get_width(), 32))
+    GAME.surface_status.blit(text, (546 - text.get_width(), 40))
 
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((16, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (16, 56)) #DRAW FOOD
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(48, 56, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HUNGER, pygame.Rect(48, 56, 80*GAME.player.hunger/game_constants.MAX_HUNGER, 13))
+    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((16, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 64)) #DRAW FOOD
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 64, 80, 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HUNGER, pygame.Rect(248, 64, 80*GAME.player.hunger/game_constants.MAX_HUNGER, 13))
 
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((32, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (138, 56)) #DRAW CARRY
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(168, 56, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(168, 56, 80*GAME.player.currentWeight()/GAME.player.stats[10], 13))
+    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((32, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (338, 64)) #DRAW CARRY
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(368, 64, 80, 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(368, 64, 80*GAME.player.currentWeight()/GAME.player.stats[10], 13))
 
-    for textIndex in range(len(GAME.controlsText)): #DRAW CONTROLS
-        xOffset = (textIndex // 3) *200
-        game_util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][0], 500 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
-        game_util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][1], 550 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+    # for textIndex in range(len(GAME.controlsText)): #DRAW CONTROLS
+    #     xOffset = (textIndex // 3) *200
+    #     game_util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][0], 500 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+    #     game_util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][1], 550 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
 def draw_effects():
     for effect in (GAME.visualeffects + GAME.visualactiveeffects): # UPDATE ALL VISUAL EFFECTS AND DRAW THEM
         GAME.update_rects.append((effect.x - GAME.camera.x, effect.y - GAME.camera.y, effect.width, effect.height))
@@ -289,7 +302,6 @@ def draw_windows():
     for window in GAME.windows: # DRAW ALL VISIBLE IN-GAME WINDOWS
         if window.visible:
             window.draw()
-
 
 def draw_menu():
     sin = math.sin(MENU.timer)
@@ -315,8 +327,6 @@ def draw_menu():
 
     pygame.display.update(MENU.update_rects)
     MENU.update_rects = []
-
-
 #def draw_charselect():
 
 
@@ -359,7 +369,6 @@ def map_init_walk(width, height, floor_percent):
             y += 4
     map_gen = map_set_borders(map_gen, width-1, height-1)
     return map_gen
-
 
 
 # EXECUTION

@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+*.ttf
+*.dll
+setup.py
 __pycache__/
-*.py[cod]
-*$py.class
