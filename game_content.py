@@ -32,7 +32,8 @@ class Window_PlayerInventory(game_classes.WindowList):
         super().input(key)
         if key == 'use':
             if GAME.player.inventory[self.index].itemType == 'consumable':
-                self.
+                pass
+                #self.
                 # GAME.controlsText = game_constants.TEXT_ONPOPUP
             elif GAME.player.inventory[self.index].itemType == 'equipment':
                 pass

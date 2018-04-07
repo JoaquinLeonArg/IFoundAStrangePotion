@@ -292,7 +292,7 @@ class WindowPopup(WindowList):
         self.basicControls(key)
         self.redraw = True
         GAME.rd_win = True
-    def self.basicControls(self, key):
+    def basicControls(self, key):
         if key == 'up':
             self.index = (self.index - 1) % len(self.items)
         elif key == 'down':
