@@ -32,14 +32,14 @@ class Window_PlayerInventory(game_classes.WindowList):
         super().input(key)
         if key == 'use':
             if GAME.player.inventory[self.index].itemType == 'consumable':
-                pass
-                #self.
+                self.active = False
+                self.popup = game_classes.WindowPopup(self, 'consumable', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, [("Use", game_constants.COLOR_WHITE), ("Drop", game_constants.COLOR_WHITE), ("Cancel", game_constants.COLOR_WHITE)])
+                GAME.windows.append(self.popup)
                 # GAME.controlsText = game_constants.TEXT_ONPOPUP
             elif GAME.player.inventory[self.index].itemType == 'equipment':
                 pass
                 # POPUP WINDOW HERE
             # GAME.windows.append(self.popupwindow)
-            self.active = False
         elif key == 'cancel':
             GAME.player.active = True
             # GAME.controlsText = game_constants.TEXT_ONMAP
@@ -51,6 +51,40 @@ class Window_PlayerInventory(game_classes.WindowList):
             game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
     def getItems(self):
         self.items = [(item.sprite_list, item.name, item.color, item.itemType, item.description) for item in GAME.player.inventory]
+    def popupInput(self, key):
+        super().popupInput(key)
+        if self.popup.window_name == 'consumable':
+            if key == 'use':
+                if self.popup.index == 0: # Use
+                    item = GAME.player.inventory[self.index]
+                    if item.condition():
+                        if 'target_self' in item.tags:
+                            item.use()
+                            self.getItems()
+                            self.destroyPopup()
+                            GAME.action = 'item'
+                            if self.parent.parent.index > 0:
+                                self.parent.parent.index -= 1
+                            #GAME.controlsText = game_constants.TEXT_ONINVENTORY
+                        elif 'target_map' in GAME.player.inventory[self.parent.parent.index].tags:
+                            self.parent.mapWindow = Window_SelectTarget(self.parent, GAME.player.inventory[self.parent.parent.index])
+                            GAME.windows.append(self.parent.mapWindow)
+                            self.destroyPopup()
+                if self.popup.index == 1: # Drop
+                    item = GAME.player.inventory.pop(self.index)
+                    item.x, item.y = GAME.player.x, GAME.player.y
+                    GAME.items.append(item)
+                    self.getItems()
+                    self.destroyPopup()
+                    if self.parent.parent.index > 0:
+                        self.parent.parent.index -= 1
+                    #GAME.controlsText = game_constants.TEXT_ONINVENTORY
+                if self.popup.index == 2: # Cancel
+                    self.destroyPopup()
+                    #GAME.controlsText = game_constants.TEXT_ONINVENTORY
+        if key == 'cancel':
+            self.destroyPopup()
+
 
 
 

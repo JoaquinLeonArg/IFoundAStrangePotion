@@ -7,6 +7,7 @@ import game_util
 import game_constants
 import sys
 
+
 # GAME
 def game_init():
     global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
