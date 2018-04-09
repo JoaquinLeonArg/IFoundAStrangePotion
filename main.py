@@ -187,7 +187,7 @@ def menu_input():
                         GAME.creatures.append(GAME.player)
 
                         # FOR TESTING PURPOSES:
-                        GAME.player.inventory += [game_content.i_magichelmet(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0)]
+                        GAME.player.inventory += [game_content.i_minorhealpotion(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0)]
                     return
                 if event.key == game_constants.KEY_CANCEL:
                     MENU.option =  (MENU.option + 1) % 3

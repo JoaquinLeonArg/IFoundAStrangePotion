@@ -260,7 +260,8 @@ class Window:
         if not self.active:
             return
     def popupInput(self, key):
-        pass
+        if self.popup == None:
+            return
     def destroyPopup(self):
         self.popup.destroy()
         self.popup = None

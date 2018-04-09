@@ -67,8 +67,8 @@ class Window_PlayerInventory(game_classes.WindowList):
                                 self.parent.parent.index -= 1
                             #GAME.controlsText = game_constants.TEXT_ONINVENTORY
                         elif 'target_map' in GAME.player.inventory[self.parent.parent.index].tags:
-                            self.parent.mapWindow = Window_SelectTarget(self.parent, GAME.player.inventory[self.parent.parent.index])
-                            GAME.windows.append(self.parent.mapWindow)
+                            self.popup = Window_SelectTarget(self, GAME.player.inventory[self.index])
+                            GAME.windows.append(self.popup)
                             self.destroyPopup()
                 if self.popup.index == 1: # Drop
                     item = GAME.player.inventory.pop(self.index)
@@ -76,8 +76,8 @@ class Window_PlayerInventory(game_classes.WindowList):
                     GAME.items.append(item)
                     self.getItems()
                     self.destroyPopup()
-                    if self.parent.parent.index > 0:
-                        self.parent.parent.index -= 1
+                    if self.index > 0:
+                        self.index -= 1
                     #GAME.controlsText = game_constants.TEXT_ONINVENTORY
                 if self.popup.index == 2: # Cancel
                     self.destroyPopup()
