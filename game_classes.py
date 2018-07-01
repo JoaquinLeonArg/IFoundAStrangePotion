@@ -42,7 +42,7 @@ class Window_Description:
             self.surface.blit(self.name, (100, 24))
             self.surface.blit(self.typename, (100, 44))
             self.surface.blit(game_constants.SPRITE_BACK_68X68, (16, 16))
-            self.surface.blit(self.icon[0], (16, 16)) # 0 is a placeholder, no animation shown
+            self.surface.blit(self.icon[0], (16, 16)) # 0 is a placeholder, meaning no animation is shown
             self.need_redraw = False
             GAME.update_rects.append(GAME.surface_windows.blit(self.surface, (self.x, self.y)))
 
@@ -168,17 +168,19 @@ class Spritesheet(object):
                 for x in range(image_count)]
         return self.images_at(tups, colorkey)
 class Tile:
-    def __init__(self, x, y, passable, transparent, damage, sprite, sprite_shadow):
+    def __init__(self, x, y, passable, transparent, sprite, sprite_shadow):
         self.x = x
         self.y = y
         self.passable = passable
         self.transparent = transparent
-        self.damage = damage
         self.sprite = sprite.convert()
         self.sprite_shadow = sprite_shadow.convert()
         self.discovered = False
+        libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, self.passable, self.transparent)
     def onDestroy(self):
-        return
+        pass
+    def onWalk(self):
+        pass
 class Camera:
     def __init__(self):
         self.x = 0
@@ -231,8 +233,7 @@ class ObjectMovement(VisualEffect):
             self.visible = False
 class Window:
     def __init__(self, x, y, sprite):
-        self.x = x
-        self.y = y
+        self.x, self.y = (x, y)
         self.sprite = sprite.convert()
         self.surface = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()))
         self.parent = None
@@ -259,6 +260,14 @@ class Window:
     def input(self, key):
         if not self.active:
             return
+        if self.popup == None:
+            self.getItems()
+            self.basicControls(key)
+            self.redraw = True
+        else:
+            self.popup.input(key)
+            self.popup.redraw = True
+        GAME.rd_win = True
     def popupInput(self, key):
         if self.popup == None:
             return
@@ -267,21 +276,15 @@ class Window:
         self.popup = None
         self.active = True
         GAME.rd_win = True
+    def basicControls(self, key):
+        pass
+    def getItems(self):
+        pass
 class WindowList(Window):
     def __init__(self, x, y, sprite, descriptable):
         super().__init__(x, y, sprite)
         self.index = 0
         self.getItems()
-    def input(self, key):
-        if self.popup == None:
-            super().input(key)
-            self.getItems()
-            self.basicControls(key)
-            self.redraw = True
-        else:
-            self.popup.input(key)
-            self.popup.redraw = True
-        GAME.rd_win = True
     def basicControls(self, key):
         if key == 'up':
             self.index = (self.index - 1) % len(self.items)
@@ -297,14 +300,13 @@ class WindowList(Window):
     #     if self.needDesc:
     #         GAME.descriptionWindow.x = self.x - game_constants.DESCWINDOW_WIDTH
     #         GAME.descriptionWindow.y = min(self.index*16+self.yoffset + 32, game_constants.CAMERA_HEIGHT*32 - game_constants.DESCWINDOW_HEIGHT)
-class WindowPopup(WindowList):
+class WindowPopupList(WindowList):
     def __init__(self, parent_window, window_name, x, y, sprite, options_list):
         super().__init__(x, y, sprite, False)
         self.parent_window = parent_window
         self.window_name = window_name
         self.items = options_list
     def input(self, key):
-        super().input(key)
         self.basicControls(key)
         self.redraw = True
         GAME.rd_win = True
@@ -323,6 +325,58 @@ class WindowPopup(WindowList):
         elif key == 'use':
             self.parent_window.popupInput('use')
     def getItems(self):
+        pass
+    def destroy(self):
+        GAME.windows.remove(self)
+class SelectTarget():
+    def __init__(self, parent_window, window_name, item, marker_sprite):
+        self.previousCamera = (GAME.camera.x, GAME.camera.y)
+        self.max_range = item.maxRange
+        self.valid_tiles = [(x, y) for x in range(-self.max_range, self.max_range + 1) for y in range(-self.max_range, self.max_range + 1) if item.targetCondition(x, y)]
+        print(self.valid_tiles)
+        self.updatePosition()
+        self.surface = pygame.Surface(((self.max_range + 1)*64, (self.max_range + 1)*64))
+        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
+        self.parent = parent_window
+        self.marker_sprite = marker_sprite
+        self.marker_x, self.marker_y = item.getInitialTarget()
+        self.visible = True
+        self.active = True
+        self.redraw = True
+        self.redraw_all = True
+    def updatePosition(self):
+        if (GAME.camera.x, GAME.camera.y) != self.previousCamera:
+            self.previousCamera = (GAME.camera.x, GAME.camera.y)
+        self.x = (GAME.player.x - self.max_range)*32 - GAME.camera.x
+        self.y = (GAME.player.y - self.max_range)*32 - GAME.camera.y
+    def draw(self):
+        if self.redraw_all:
+            self.redraw_all = False
+            self.surface.set_alpha()
+            self.surface.fill(game_constants.COLOR_COLORKEY)
+            self.updatePosition()
+            self.update()
+            self.surface.set_alpha(150)
+        GAME.rd_win = True
+        SCREEN.blit(self.surface, (self.x, self.y))
+        SCREEN.blit(self.marker_sprite, (self.marker_x*32, self.marker_y*32))
+    def update(self):
+        self.updatePosition()
+        for x in range(-self.max_range, self.max_range + 1):
+            for y in range(-self.max_range, self.max_range + 1):
+                if (x, y) in self.valid_tiles and game_util.simpledistance((x, y), (0, 0)) <= self.max_range:
+                    self.surface.fill(game_constants.COLOR_GREEN, ((self.max_range + x)*32, (self.max_range + y)*32, 32, 32))
+    def destroy(self):
+        if self in GAME.windows:
+            GAME.windows.remove(self)
+        if self.parent == None:
+            GAME.player.active = True
+        GAME.rd_win = True
+    def input(self, key):
+        self.basicControls(key)
+        self.redraw_all = True
+        GAME.rd_win = True
+    def basicControls(self, key):
         pass
 class Entity:
     def __init__(self, x, y, tags, sprite_list):
@@ -423,6 +477,10 @@ class Player(Creature):
     def onStarve(self):
         for action in self.actions['starve']:
             action.execute()
+    def canAttack(self, relative_position):
+        if self.equipment[0] = None:
+            return first(game_util.distance(self, creature) <= 1 for creature in GAME.creatures if creature is not self and (creature.x, creature.y) = (self.x, self.y) + relative_position)
+        return self.equipment[0].canAttack(relative_position)
 class Monster(Creature):
     def __init__(self, x, y, tags, sprite_list, name, actions, maxHp, drops):
         super().__init__(x, y, tags, sprite_list, actions)
@@ -451,6 +509,8 @@ class Equipment(Item):
         self.actionEquipment.onEquip()
     def unequip(self):
         self.actionEquipment.onUnequip()
+    def canEquip(self):
+        return all(requirement.execute() for requirement in self.requirements)
 class Consumable(Item):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, useCondition = [], charges = 1):
         super().__init__(x, y, tags, sprite_list, name, color, size, description)
@@ -481,8 +541,8 @@ class ConsumableMap(Consumable):
         self.initialTarget = initialTarget(self)
         self.maxRange = maxRange
         self.conditions = targetCondition
-    def initialTarget(self):
-        return initialTarget.execute()
+    def getInitialTarget(self):
+        return self.initialTarget.execute()
     def targetCondition(self, x, y):
         for condition in self.conditions:
             if not condition.execute(x, y):
@@ -526,3 +586,7 @@ class Skill:
     def onBuy(self):
         if self.maxRank != -1:
             self.rank += 1
+    def isMaxed(self):
+        return self.rank == self.maxRank
+    def isNotMaxed(self):
+        return not self.isMaxed()

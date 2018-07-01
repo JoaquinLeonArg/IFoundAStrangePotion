@@ -7,7 +7,6 @@ import game_util
 import game_constants
 import sys
 
-
 # GAME
 def game_init():
     global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
@@ -187,13 +186,12 @@ def menu_input():
                         GAME.creatures.append(GAME.player)
 
                         # FOR TESTING PURPOSES:
-                        GAME.player.inventory += [game_content.i_minorhealpotion(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0)]
+                        GAME.player.inventory += [game_content.i_minorhealpotion(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_magichelmet(0, 0)]
                     return
                 if event.key == game_constants.KEY_CANCEL:
                     MENU.option =  (MENU.option + 1) % 3
                     MENU.update = True
                     return
-
 
 # DRAW
 def draw_game():
@@ -206,11 +204,6 @@ def draw_game():
         draw_status()
         GAME.rd_sta = False
     draw_map()
-    if GAME.rd_win: # CHECK IF SURFACE_WINDOWS NEEDS TO BE REDRAWN
-        draw_windows()
-        if GAME.draw_descriptionwindow:
-            GAME.descriptionWindow.draw()
-        GAME.rd_win = False
     draw_entities() # SAME AS EFFECTS
 
     # BLIT ALL SURFACES INTO THE MAIN SURFACE
@@ -220,6 +213,12 @@ def draw_game():
     draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
     GAME.update_rects.append(SCREEN.blit(GAME.surface_log, (0, game_constants.CAMERA_HEIGHT*32)))
     GAME.update_rects.append(SCREEN.blit(GAME.surface_status, (game_constants.LOG_WIDTH + 4, game_constants.CAMERA_HEIGHT*32))) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
+
+    if GAME.rd_win: # CHECK IF SURFACE_WINDOWS NEEDS TO BE REDRAWN
+        GAME.rd_win = False
+        draw_windows()
+        if GAME.draw_descriptionwindow:
+            GAME.descriptionWindow.draw()
 
     # FOR DEBUG PURPOSES
     GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 10, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
@@ -330,7 +329,6 @@ def draw_menu():
     MENU.update_rects = []
 #def draw_charselect():
 
-
 # MAP
 def map_init_noise(width, height):
     map_gen = []
@@ -370,7 +368,6 @@ def map_init_walk(width, height, floor_percent):
             y += 4
     map_gen = map_set_borders(map_gen, width-1, height-1)
     return map_gen
-
 
 # EXECUTION
 if __name__ == '__main__':

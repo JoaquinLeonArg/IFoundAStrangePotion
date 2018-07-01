@@ -50,6 +50,9 @@ SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
 SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
 SPRITE_STATUS = pygame.image.load('resources/status.png')
 SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
+SPRITE_TRADEWINDOW = pygame.image.load('resources/graphics/window_trade.png')
+
+SPRITE_MARKER = pygame.image.load('resources/graphics/marker.png')
 
 SPRITE_BACK_68X68 = pygame.image.load('resources/graphics/back_68x68.png')
 
@@ -100,3 +103,5 @@ TEXT_ONSTATUS = [('C:', 'go back')]
 TEXT_ONEQUIPMENT = [('S:', 'select'), ('C:', 'go back')]
 
 MONSTERS_POOL = [[0], [0], [0], [0], [0], [0]]
+
+CHANCE_WALL1TREASURE = 0.5
