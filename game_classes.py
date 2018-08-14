@@ -432,12 +432,10 @@ class Player(Creature):
         self.xp = 0
         self.level = 1
         self.equipment = equipment
-        self.baseStats = stats
-        self.stats = self.baseStats
-        self.hp = self.stats[0]
-        self.mana = self.stats[1]
-        self.hunger = game_constants.MAX_HUNGER
-        self.damageStat = 10 # PLACEHOLDER
+        self.stats = stats
+        self.currentHitPoints = self.getMaxHitPoints()
+        self.currentMagicPoints = self.getMaxMagicPoints()
+        self.currentHunger = game_constants.MAX_HUNGER
         self.active = True
         self.priority = 2
 
@@ -462,25 +460,23 @@ class Player(Creature):
                 self.move(1, 0)
                 game_util.map_light_update(GAME.light_map)
     def execute_action(self):
-        self.recalculateStats()
         for action in self.actions['turn']:
             action.execute()
-    def recalculateStats(self):
-        self.modifiers = sorted(self.modifiers, key = lambda action: action.priority, reverse = True)
-        self.stats = [stat for stat in self.baseStats]
-        for modifier in self.modifiers:
-            modifier.execute()
-        if self.hp > self.stats[0]:
-            self.hp = self.stats[0]
-    def currentWeight(self):
+    def getCurrentWeight(self):
         return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item != None])
     def onStarve(self):
         for action in self.actions['starve']:
             action.execute()
     def canAttack(self, relative_position):
-        if self.equipment[0] = None:
-            return first(game_util.distance(self, creature) <= 1 for creature in GAME.creatures if creature is not self and (creature.x, creature.y) = (self.x, self.y) + relative_position)
+        if self.equipment[0] == None: # No weapon equipped
+            return first(game_util.distance(self, creature) <= 1 for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x, self.y) + relative_position)
         return self.equipment[0].canAttack(relative_position)
+    def getMaxHitPoints(self):
+        return (100 + self.stats['HitPointsFlat'])*self.stats['HitPointsMult']
+    def getMaxMagicPoints(self):
+        return (100 + self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']
+    def getMaxCarry(self):
+        return 10 + self.stats['MaxCarry']
 class Monster(Creature):
     def __init__(self, x, y, tags, sprite_list, name, actions, maxHp, drops):
         super().__init__(x, y, tags, sprite_list, actions)
@@ -511,6 +507,9 @@ class Equipment(Item):
         self.actionEquipment.onUnequip()
     def canEquip(self):
         return all(requirement.execute() for requirement in self.requirements)
+class Weapon(Equipment):
+    def __init__(self, x, y, tags, sprite_list, name, color, size, description, actionEquipment, requirements = []):
+        super().__init__(x, y, tags, sprite_list, name, color, size, description, 0, actionEquipment, requirements = [])
 class Consumable(Item):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, useCondition = [], charges = 1):
         super().__init__(x, y, tags, sprite_list, name, color, size, description)

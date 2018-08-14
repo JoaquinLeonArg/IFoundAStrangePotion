@@ -265,27 +265,27 @@ def draw_status():
 
     GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 16)) #DRAW HP
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 16, 200, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, pygame.Rect(248, 16, 200*GAME.player.hp/GAME.player.stats[0], 13))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.hp), False, game_constants.COLOR_WHITE)
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, pygame.Rect(248, 16, 200*GAME.player.currentHitPoints/GAME.player.getMaxHitPoints(), 13))
+    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.currentHitPoints), False, game_constants.COLOR_WHITE)
     GAME.surface_status.blit(text, (462, 16))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.stats[0]), False, game_constants.COLOR_WHITE)
+    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.getMaxHitPoints()), False, game_constants.COLOR_WHITE)
     GAME.surface_status.blit(text, (546 - text.get_width(), 16))
 
     GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 16, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 40)) #DRAW MANA
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 40, 200, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_CYAN, pygame.Rect(248, 40, 200*GAME.player.mana/GAME.player.stats[1], 13))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.mana), False, game_constants.COLOR_WHITE)
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_CYAN, pygame.Rect(248, 40, 200*GAME.player.currentMagicPoints/GAME.player.getMaxMagicPoints(), 13))
+    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.currentMagicPoints), False, game_constants.COLOR_WHITE)
     GAME.surface_status.blit(text, (462, 40))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.stats[1]), False, game_constants.COLOR_WHITE)
+    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.getMaxMagicPoints()), False, game_constants.COLOR_WHITE)
     GAME.surface_status.blit(text, (546 - text.get_width(), 40))
 
     GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((16, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 64)) #DRAW FOOD
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 64, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HUNGER, pygame.Rect(248, 64, 80*GAME.player.hunger/game_constants.MAX_HUNGER, 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HUNGER, pygame.Rect(248, 64, 80*GAME.player.currentHunger/game_constants.MAX_HUNGER, 13))
 
     GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((32, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (338, 64)) #DRAW CARRY
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(368, 64, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(368, 64, 80*GAME.player.currentWeight()/GAME.player.stats[10], 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(368, 64, 80*GAME.player.getCurrentWeight()/GAME.player.getMaxCarry(), 13))
 
     # for textIndex in range(len(GAME.controlsText)): #DRAW CONTROLS
     #     xOffset = (textIndex // 3) *200
@@ -368,6 +368,8 @@ def map_init_walk(width, height, floor_percent):
             y += 4
     map_gen = map_set_borders(map_gen, width-1, height-1)
     return map_gen
+
+
 
 # EXECUTION
 if __name__ == '__main__':

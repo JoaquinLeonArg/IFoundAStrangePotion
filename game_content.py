@@ -18,7 +18,7 @@ SPRITESHEET_ICONS = game_classes.Spritesheet('resources/icons.png')
 SPRITESHEET_MONSTERS = game_classes.Spritesheet('resources/graphics/monsters_animated.png')
 SPRITESHEET_EQUIPMENT_HEAD = game_classes.Spritesheet('resources/graphics/equipment_head_animated.png')
 SPRITESHEET_PORTRAITS = game_classes.Spritesheet('resources/graphics/character_faces.png')
-SPRITESHEET_SKILLICONS = game_classes.Spritesheet('resourcess/graphics/skill_icons.png')
+SPRITESHEET_SKILLICONS = game_classes.Spritesheet('resources/graphics/skill_icons.png')
 
 ################################################# CLASSES #################################################
 
@@ -115,6 +115,8 @@ class Window_SearchInventory(game_classes.WindowList):
                 GAME.player.inventory.append(item)
                 GAME.items.remove(item)
                 self.getItems()
+                if len(self.items) == 0:
+                    self.destroy()
                 if self.index > 0:
                     self.index -= 1
             else:
@@ -133,7 +135,7 @@ class Window_SearchInventory(game_classes.WindowList):
 class Window_Equipment(game_classes.WindowList):
     def __init__(self):
         super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
-        self.equipmentNames = ['- Main hand -', '- Offhand   -', '- Head      -', '- Chest     -', '- Legs      -', '- Feet      -', '- Hand      -', '- Neck      -']
+        self.equipmentNames = ['- Main hand -', '- Head      -', '- Chest     -', '- Legs      -', '- Feet      -', '- Hand      -', '- Neck      -']
     def input(self, key):
         super().input(key)
         if key == 'use':
@@ -261,13 +263,13 @@ class Window_Trade(game_classes.WindowList):
     def input(self, key):
         super().input(key)
         if key == 'left':
-            if self.wx = 1:
+            if self.wx == 1:
                 self.wx = 0
         if key == 'right':
-            if self.wx = 0:
+            if self.wx == 0:
                 self.wx = 1
         if key == 'use':
-
+            pass
         if key == 'cancel':
             GAME.player.active = True
             # GAME.controlsText = game_constants.TEXT_ONMAP
@@ -343,6 +345,17 @@ class b_play_hunger(game_classes.Component):
             self.parent.hunger -= 1
         else:
             self.parent.onStarve()
+class b_player_hammerattack(game_classes.Component):
+    def __init__(self, damage, damage_type, hit_chance, stun_chance):
+        super().__init__(Game.player)
+        self.damage = damage
+        self.damage_type = damage_type
+        self.hit_chance = hit_chance
+        self.stun_chance = stun_chance
+    def execute(self, current_damages):
+        if random.random() < self.hit_chance:
+
+            GAME.addLogMessage(self.parent.name + ' attacks ' + receiver.name + ' for ' + str(self.parent.damageStat) + ' damage!', game_constants.COLOR_RED)
 
 class d_play_health(game_classes.Component):
     def execute(self):
@@ -800,7 +813,7 @@ class p_normal(game_classes.Player):
                         y = y,
                         sprite_list = SPRITESHEET_PLAYER.images_at_loop([(i*32, 0, 32, 32) for i in range(8)], colorkey = game_constants.COLOR_COLORKEY),
                         portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
-                        stats = [200, 9999, 3, 1, 6, 0.05, 0.00, 0.10, 0.10, 0.80, 20],
+                        stats = player_basicstats(),
                         equipment = [None for i in range(8)],
                         modifiers = [d_play_hunger(self, 11), d_play_health(self, 10)],
                         status = [s_health(self), s_hunger(self)],
@@ -945,3 +958,49 @@ def map_set_borders(map_array, width, height):
         if random.randint(0,2) == 0:
             map_array[width-1][y] = t_unbreakable_wall(width-1, y)
     return map_array
+
+def player_basicstats():
+    return {   'HitPointsFlat': 0,
+                'HitPointsMult': 1,
+
+                'MagicPointsMult': 1,
+                'MagicPointsFlat': 0,
+
+                'ExpGainedMult': 1,
+                'HealingMult': 1,
+                'FoodConsumption': 0,
+                'MaxCarry': 0,
+                'DamageReceivedMult': 1,
+
+                'HitPointsRegenFlat': 0,
+                'HitPointsRegenMult': 1,
+                'PhyAttackFlat': 0,
+                'PhysAttackMult': 1,
+                'PhyCritDamage': 0,
+                'PhyCritChance': 0,
+                'PhyBleedChance': 0,
+                'PhyBleedMult': 1,
+                'PhyBleedDuration': 0,
+                'PhyStunChance': 0,
+                'PhyStunDuration': 0,
+                'PhyConfuseChance': 0,
+                'PhyConfuseDuration': 0,
+                'StrEffectivenessMult': 1,
+                'StrDuration': 0,
+
+                'MagicPointsRegenFlat': 0,
+                'MagicPointsRegenMult': 1,
+                'MagAttackFlat': 0,
+                'MagAttackMult': 1,
+                'MagCritDamage': 0,
+                'MagCritChance': 0,
+                'MagBleedChance': 0,
+                'MagBleedMult': 1,
+                'MagBleedDuration': 0,
+                'MagStunChance': 0,
+                'MagStunDuration': 0,
+                'MagConfuseChance': 0,
+                'MagConfuseDuration': 0,
+                'EmpEffectivenessMult': 1,
+                'EmpDuration': 0
+    }
