@@ -285,7 +285,7 @@ def draw_status():
 
     GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((32, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (338, 64)) #DRAW CARRY
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(368, 64, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(368, 64, 80*GAME.player.getCurrentWeight()/GAME.player.getMaxCarry(), 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(368, 64, 80*GAME.player.getCurrentCarry()/GAME.player.getMaxCarry(), 13))
 
     # for textIndex in range(len(GAME.controlsText)): #DRAW CONTROLS
     #     xOffset = (textIndex // 3) *200
@@ -368,7 +368,6 @@ def map_init_walk(width, height, floor_percent):
             y += 4
     map_gen = map_set_borders(map_gen, width-1, height-1)
     return map_gen
-
 
 
 # EXECUTION

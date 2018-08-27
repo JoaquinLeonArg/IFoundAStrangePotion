@@ -122,10 +122,10 @@ class Game:
         self.rd_log = True
     def creaturesExecuteTurn(self):
         for creature in self.creatures:
-            creature.execute_action()
+            creature.event('turn')
     def entitiesExecuteTurn(self):
         for entity in self.entities:
-            entity.execute_action()
+            entity.event('turn')
     def placeFree(self, x, y):
         for obj in self.creatures:
             if (obj.x == x and obj.y == y):
@@ -379,9 +379,10 @@ class SelectTarget():
     def basicControls(self, key):
         pass
 class Entity:
-    def __init__(self, x, y, tags, sprite_list):
+    def __init__(self, x, y, tags, sprite_list, behaviors = []):
         self.x = x
         self.y = y
+        self.behaviors = behaviors
         self.tags = tags
         self.visible = True
         self.priority = 0
@@ -394,38 +395,21 @@ class Entity:
     def update_frame(self):
         self.sprite = self.sprite_list[self.frame // game_constants.ANIMATION_WAIT % len(self.sprite_list)]
         self.frame += 1
-    def move(self, dx, dy):
-        pass
     def destroy(self):
         GAME.entities.remove(self)
+    def event(self, event_name, args = []):
+        for e in sorted(self.behaviors, key = lambda x: x[1]):
+            e[0](event_name, args)
 class Creature(Entity):
-    def __init__(self, x, y, tags, sprite_list, actions):
-        super().__init__(x, y, tags, sprite_list)
+    def __init__(self, x, y, tags, sprite_list, behaviors):
+        super().__init__(x, y, tags, sprite_list, behaviors)
         self.priority = 1
-        self.actions = actions
+        self.behaviors = behaviors
     def isEnemy(self, target):
         return 'enemy' in self.tags
-    def execute_action(self):
-        for action in self.actions['turn']:
-            action.execute()
-    def move(self, dx = 0, dy = 0):
-        super().move(dx, dy)
-        if GAME.placeFree(self.x + dx, self.y + dy) and GAME.map[self.x + dx][self.y + dy].passable:
-            GAME.visualactiveeffects.append(ObjectMovement(self, self.x*32, self.y*32, (self.x + dx)*32, (self.y + dy)*32, 8, [self.sprite]))
-        for action in self.actions['move']:
-            action.execute(dx, dy)
-    def attack(self, obj):
-        for action in self.actions['attack']:
-            action.execute(obj)
-    def damage(self, value, damageType, damageSubtype):
-        for action in self.actions['takeDamage']:
-            action.execute(value, damageType, damageSubtype)
-    def die(self):
-        for action in self.actions['death']:
-            action.execute()
 class Player(Creature):
-    def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, modifiers, status, actions, skilltree):
-        super().__init__(x, y, ['player'], sprite_list, actions)
+    def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, modifiers, status, skilltree, behaviors):
+        super().__init__(x, y, ['player'], sprite_list, behaviors)
         self.inventory = []
         self.name = 'Player'
         self.portrait_list = portrait_list
@@ -443,30 +427,22 @@ class Player(Creature):
 
         self.modifiers = modifiers
         self.status = status
-        self.actions = actions
         self.skilltree = skilltree
+        self.behaviors = behaviors
     def input(self, key):
         if self.active:
             if key == 'up':
-                self.move(0, -1)
+                self.event('move', (0, -1))
                 game_util.map_light_update(GAME.light_map)
             elif key == 'down':
-                self.move(0, 1)
+                self.event('move', (0, 1))
                 game_util.map_light_update(GAME.light_map)
             elif key == 'left':
-                self.move(-1, 0)
+                self.event('move', (-1, 0))
                 game_util.map_light_update(GAME.light_map)
             elif key == 'right':
-                self.move(1, 0)
+                self.event('move', (1, 0))
                 game_util.map_light_update(GAME.light_map)
-    def execute_action(self):
-        for action in self.actions['turn']:
-            action.execute()
-    def getCurrentWeight(self):
-        return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item != None])
-    def onStarve(self):
-        for action in self.actions['starve']:
-            action.execute()
     def canAttack(self, relative_position):
         if self.equipment[0] == None: # No weapon equipped
             return first(game_util.distance(self, creature) <= 1 for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x, self.y) + relative_position)
@@ -477,15 +453,18 @@ class Player(Creature):
         return (100 + self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']
     def getMaxCarry(self):
         return 10 + self.stats['MaxCarry']
+    def getHungerDepletion(self):
+        return math.max(1, 4 + self.stats['HungerFlat'])
+    def getCurrentCarry(self):
+        return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item != None])
 class Monster(Creature):
-    def __init__(self, x, y, tags, sprite_list, name, actions, maxHp, drops):
-        super().__init__(x, y, tags, sprite_list, actions)
+    def __init__(self, x, y, tags, sprite_list, name, maxHp, drops, behaviors):
+        super().__init__(x, y, tags, sprite_list, behaviors)
         self.name = name
         self.maxHp = maxHp
         self.hp = maxHp
-        self.damageStat = random.randint(1,6)
         self.drops = drops
-        self.actions = actions
+        self.behaviors = behaviors
         self.tags = ['monster'] + tags
 class Item(Entity):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description):
@@ -568,9 +547,8 @@ class Potion():
             self.charges -= 1
 
 class Component:
-    def __init__(self, parent, priority = 0):
+    def __init__(self, parent):
         self.parent = parent
-        self.priority = priority
 class Skill:
     def __init__(self, index, pos, name, description, sprite, move, req, maxRank):
         self.index = index

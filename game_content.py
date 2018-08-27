@@ -1,6 +1,7 @@
 import game_classes
 import game_constants
 import random
+import math
 import game_util
 import pygame
 import libtcodpy
@@ -313,121 +314,44 @@ class Window_Trade(game_classes.WindowList):
             self.destroyPopup()
 #class Window_Potion(game_classes.Window):
 
-# PLAYER BEHAVIORS
-class b_play_move(game_classes.Component):
-    def execute(self, dx = 0, dy = 0):
-        for entity in GAME.entities:
-            if entity.x == self.parent.x + dx and entity.y == self.parent.y + dy and 'openable' in entity.tags:
-                if not entity.isOpen:
-                    entity.open()
-                    GAME.movetimer = 15
-                    return
-        if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
-            if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
-                self.parent.x += dx
-                self.parent.y += dy
+# BEHAVIORS
+def b_playerbase(event, args = None):
+    if event == 'move':
+        GAME.movetimer = 10
+        dx, dy = (args[0], args[1])
+        for entity in GAME.entities: # Movement to a tile with an open-able entity.
+            if entity.x == GAME.player.x + dx and entity.y == GAME.player.y + dy:
+                if 'openable' in entity.tags:
+                    if not entity.isOpen:
+                        entity.open()
+                        return
+                elif 'exit' in entity.tags:
+                    entity.changeLevel()
+        if GAME.placeFree(GAME.player.x + dx, GAME.player.y + dy): # Movement to a free tile.
+            if GAME.map[GAME.player.x + dx][GAME.player.y + dy].passable:
+                GAME.player.x += dx
+                GAME.player.y += dy
                 GAME.action = 'move'
         else:
-            for creature in GAME.creatures:
-                if (creature is not self.parent and creature.x == self.parent.x + dx and creature.y == self.parent.y + dy):
-                    self.parent.attack(creature)
+            for creature in GAME.creatures: # Movement to a tile with an enemy.
+                if (creature is not GAME.player and creature.x == GAME.player.x + dx and creature.y == GAME.player.y + dy):
+                    GAME.player.attack(creature)
                     break
-class b_play_death(game_classes.Component):
-    def execute(self):
+        GAME.player.currentHunger = max(0, GAME.player.currentHunger - GAME.player.stats['HungerFlat'])
+        if GAME.player.currentHunger == 0:
+            GAME.player.damage(1, 'starvation', None)
+    elif event == 'death':
         pygame.quit()
         sys.exit()
-class b_play_starvedamage(game_classes.Component):
-    def execute(self):
-        self.parent.damage(int(self.parent.stats[0]*0.01), 'true', 'none')
-class b_play_hunger(game_classes.Component):
-    def execute(self):
-        if self.parent.hunger > 0:
-            self.parent.hunger -= 1
-        else:
-            self.parent.onStarve()
-class b_player_hammerattack(game_classes.Component):
-    def __init__(self, damage, damage_type, hit_chance, stun_chance):
-        super().__init__(Game.player)
-        self.damage = damage
-        self.damage_type = damage_type
-        self.hit_chance = hit_chance
-        self.stun_chance = stun_chance
-    def execute(self, current_damages):
-        if random.random() < self.hit_chance:
-
-            GAME.addLogMessage(self.parent.name + ' attacks ' + receiver.name + ' for ' + str(self.parent.damageStat) + ' damage!', game_constants.COLOR_RED)
-
-class d_play_health(game_classes.Component):
-    def execute(self):
-        if self.parent.hp < self.parent.stats[0]*0.5:
-            self.parent.stats[2] *= 0.5
-class d_play_hunger(game_classes.Component):
-    def execute(self):
-        if self.parent.hunger < game_constants.MAX_HUNGER*0.5:
-            self.parent.stats[0] *= 0.8
-        elif self.parent.hunger < game_constants.MAX_HUNGER*0.3:
-            self.parent.stats[0] *= 0.4
-        self.parent.stats[0] = int(self.parent.stats[0])
-
-# CREATURES BEHAVIOR
-class b_crea_move(game_classes.Component):
-    def execute(self, dx = 0, dy = 0):
-        for entity in GAME.entities:
-            if entity.x == self.parent.x + dx and entity.y == self.parent.y + dy and entity.tag == 'door_closed':
-                entity.open()
-                return
-        if GAME.placeFree(self.parent.x + dx, self.parent.y + dy):
-            if GAME.map[self.parent.x + dx][self.parent.y + dy].passable:
-                self.parent.x += dx
-                self.parent.y += dy
-        else:
-            for creature in GAME.creatures:
-                if (creature is not self.parent and creature.x == self.parent.x + dx and creature.y == self.parent.y + dy):
-                    self.parent.attack(creature)
-                    break
-class b_crea_simpleturn(game_classes.Component):
-    def execute(self):
-        if game_util.distance(self.parent, GAME.player) == 1:
-            self.parent.attack(GAME.player)
-        else:
-            rnd = random.randint(1,5)
-            if rnd == 0:
-                self.parent.move(-1, 0)
-            elif rnd == 1:
-                self.parent.move(1, 0)
-            elif rnd == 2:
-                self.parent.move(0, -1)
-            elif rnd == 3:
-                self.parent.move(0, 1)
-            else:
-                self.parent.move(0, 0)
-class b_crea_takedamage(game_classes.Component):
-    def execute(self, amount, damageType, damageSubtype):
-        self.parent.hp -= amount
-        if self.parent.hp <= 0:
-            self.parent.die()
-class b_crea_simpledeath(game_classes.Component):
-    def execute(self):
-        for drop in self.parent.drops:
-            rnd = random.random()
-            if rnd < drop[1]:
-                drop[0].x = self.parent.x
-                drop[0].y = self.parent.y
-                GAME.items.append(drop[0])
-        GAME.creatures.remove(self.parent)
-class b_crea_simpleattack(game_classes.Component):
-    def execute(self, receiver):
-        receiver.damage(self.parent.damageStat, 'physical', 'none')
-        GAME.addLogMessage(self.parent.name + ' attacks ' + receiver.name + ' for ' + str(self.parent.damageStat) + ' damage!', game_constants.COLOR_RED)
 
 #STATUS
 class s_hunger(game_classes.Component):
     def update(self):
         self.turns = None
-        if self.parent.hunger > 50:
+        if GAME.player.currentHunger > 50:
             self.name = 'Well fed'
             self.color = game_constants.COLOR_GREEN
-        elif self.parent.hunger > 30:
+        elif GAME.player.currentHunger > 30:
             self.name = 'Hungry'
             self.color = game_constants.COLOR_YELLOW
         else:
@@ -528,25 +452,18 @@ class e_damage_l():
             if game_classes.Monster.x == x and game_classes.Monster.y == y:
                 game_classes.Monster.damage(self.amount, self.damageType, self.damageSubtype)
 
-# CONDITIONS / INTIAL COORDINATES
-class c_playnotfullhealth(game_classes.Component):
-    def execute(self):
-        return GAME.player.hp < GAME.player.stats[0]
-class c_playnotfullhunger(game_classes.Component):
-    def execute(self):
-        return GAME.player.hunger < game_constants.MAX_HUNGER
-class c_notusable(game_classes.Component):
-    def execute(self):
-        return False
-class c_initonplayer(game_classes.Component):
-    def execute(self):
-        return (0, 0)
-class c_creatureinlocation(game_classes.Component):
-    def execute(self, x, y):
-        for creature in GAME.creatures:
-            if creature.x == x and creature.y == y:
-                return True
-        return False
+# CONDITIONS
+def c_playnotfullhealth():
+    return GAME.player.currentHitPoints < GAME.player.getMaxHitPoints
+def c_playnotfullhunger():
+    return GAME.player.currentHunger < game_constants.MAX_HUNGER
+def c_notusable():
+    return False
+def c_creatureinlocation(x, y):
+    for creature in GAME.creatures:
+        if creature.x == x and creature.y == y:
+            return True
+    return False
 
 # ENTITIES
 class n_door(game_classes.Entity):
@@ -596,11 +513,10 @@ class n_bomb(game_classes.Entity):
             GAME.addLogMessage('You hear a loud explosion.', game_constants.COLOR_INFO)
 class n_exit(game_classes.Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, [], [SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)])
-    def execute_action(self):
-        if GAME.player.x == self.x and GAME.player.y == self.y:
-            GAME.level += 1
-            GAME.generateMap(map_init_dungeon)
+        super().__init__(x, y, ['exit'], [SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)])
+    def changeLevel(self):
+        GAME.level += 1
+        GAME.generateMap(map_init_dungeon)
 
 # VISUALS
 class v_square_fadeout(game_classes.VisualEffect):
@@ -641,20 +557,6 @@ class t_unbreakable_wall(game_classes.Tile):
         super().__init__(x, y, False, False, SPRITESHEET_TILES.image_at((64, 32*rnd, 32, 32)), SPRITESHEET_TILES.image_at((64, 32*rnd + 96, 32, 32)))
 
 # MONSTERS
-class m_slime(game_classes.Monster):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                        y = y,
-                        tags = [],
-                        sprite_list = SPRITESHEET_MONSTERS.images_at([(i*32, 0, 32, 32)for i in range(4)], colorkey = -1),
-                        name = 'Slime',
-                        maxHp = 10,
-                        drops = [(i_minorhealpotion(0, 0), 0.8), (i_bomb(0, 0), 0.8), (i_meat(0, 0), 0.8), (i_throwablebomb(0, 0), 0.8)],
-                        actions = { 'turn': [b_crea_simpleturn(self)],
-                                    'move': [b_play_move(self)],
-                                    'attack': [b_crea_simpleattack(self)],
-                                    'takeDamage': [b_crea_takedamage(self)],
-                                    'death': [b_crea_simpledeath(self)] })
 
 # SPECIAL ITEMS
 class i_null(game_classes.Item):
@@ -691,7 +593,7 @@ class i_minorhealpotion(game_classes.Consumable):
                          description = [[('Heals the user.', game_constants.COLOR_WHITE)],
                                     [('* Amount: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_GREEN)]],
                          effects = [e_flatheal(GAME.player, 10), e_getused(self)],
-                         useCondition = [c_playnotfullhealth(GAME.player)])
+                         useCondition = [(c_playnotfullhealth, [])])
 class i_bomb(game_classes.Consumable):
     def __init__(self, x, y):
         super().__init__(x = x,
@@ -815,28 +717,22 @@ class p_normal(game_classes.Player):
                         portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
                         stats = player_basicstats(),
                         equipment = [None for i in range(8)],
-                        modifiers = [d_play_hunger(self, 11), d_play_health(self, 10)],
+                        modifiers = [],
                         status = [s_health(self), s_hunger(self)],
-                        actions = { 'turn': [],
-                                    'move': [b_play_move(self)],
-                                    'starve': [b_play_starvedamage(self)],
-                                    'attack': [b_crea_simpleattack(self)],
-                                    'death': [b_play_death(self)],
-                                    'takeDamage': [b_crea_takedamage(self)],
-                                    'hunger': [b_play_hunger(self)] },
                         skilltree = [skill_healthup(0, (8, 0), (None, 2, None, 1), [], 3),
                                     skill_fullheal(1, (8, 2), (None, None, 0, None), [0], 1),
                                     skill_fullheal(2, (18, 0), (0, None, 0, 3), [], 1),
                                     skill_fullheal(3, (16, 2), (1, 4, 2, None), [2], 1),
                                     skill_fullheal(4, (20, 2), (3, None, 2, 5), [2], 1),
-                                    skill_fullheal(5, (20, 4), (None, None, 4, None), [4], 1),
-                        ])
+                                    skill_fullheal(5, (20, 4), (None, None, 4, None), [4], 1)],
+                        behaviors = [(b_playerbase, 50)]
+                        )
 
 ################################################# FUNCTIONS #################################################
 
 # MAP GENERATORS
 
-MONSTERS = [m_slime]
+MONSTERS = [None]
 
 def map_init_dungeon(width, height):
     def path_cost(xFrom, yFrom, xTo, yTo, alg_array):
@@ -933,8 +829,8 @@ def map_init_dungeon(width, height):
                 terrain[x][y] = t_cave_wall(x, y)
             else:
                 terrain[x][y] = t_cave_floor(x, y)
-            if alg_array[x][y] == 4:
-                creatures.append(MONSTERS[random.choice(game_constants.MONSTERS_POOL[GAME.level])](x, y))
+            # if alg_array[x][y] == 4:
+                # creatures.append(MONSTERS[random.choice(game_constants.MONSTERS_POOL[GAME.level])](x, y))
             if alg_array[x][y] == 7:
                 entities.append(n_door(x, y, SPRITESHEET_ENTITIES.image_at((0, 32, 32, 32)), SPRITESHEET_ENTITIES.image_at((32, 32, 32, 32), colorkey = game_constants.COLOR_COLORKEY)))
                 terrain[x][y].passable = False
@@ -968,7 +864,7 @@ def player_basicstats():
 
                 'ExpGainedMult': 1,
                 'HealingMult': 1,
-                'FoodConsumption': 0,
+                'HungerFlat': 0,
                 'MaxCarry': 0,
                 'DamageReceivedMult': 1,
 
