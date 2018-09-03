@@ -184,9 +184,6 @@ def menu_input():
                         GAME.player = game_content.p_normal(game_constants.MAP_WIDTH[0]//2, game_constants.MAP_HEIGHT[0]//2)
                         GAME.generateMap(game_content.map_init_dungeon)
                         GAME.creatures.append(GAME.player)
-
-                        # FOR TESTING PURPOSES:
-                        GAME.player.inventory += [game_content.i_minorhealpotion(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_thunderrod(0, 0), game_content.i_magichelmet(0, 0)]
                     return
                 if event.key == game_constants.KEY_CANCEL:
                     MENU.option =  (MENU.option + 1) % 3

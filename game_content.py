@@ -335,8 +335,7 @@ def b_playerbase(event, args = None):
         else:
             for creature in GAME.creatures: # Movement to a tile with an enemy.
                 if (creature is not GAME.player and creature.x == GAME.player.x + dx and creature.y == GAME.player.y + dy):
-                    GAME.player.attack(creature)
-                    break
+                    return
         GAME.player.currentHunger = max(0, GAME.player.currentHunger - GAME.player.stats['HungerFlat'])
         if GAME.player.currentHunger == 0:
             GAME.player.damage(1, 'starvation', None)
@@ -557,6 +556,9 @@ class t_unbreakable_wall(game_classes.Tile):
         super().__init__(x, y, False, False, SPRITESHEET_TILES.image_at((64, 32*rnd, 32, 32)), SPRITESHEET_TILES.image_at((64, 32*rnd + 96, 32, 32)))
 
 # MONSTERS
+class m_slime(game_classes.Monster):
+    def __init__(self, x, y):
+        super().__init__(x, y, [], [SPRITESHEET_MONSTERS.image_at((0, 0, 32, 32))], 'Slime', 100, [], [])
 
 # SPECIAL ITEMS
 class i_null(game_classes.Item):
@@ -829,8 +831,8 @@ def map_init_dungeon(width, height):
                 terrain[x][y] = t_cave_wall(x, y)
             else:
                 terrain[x][y] = t_cave_floor(x, y)
-            # if alg_array[x][y] == 4:
-                # creatures.append(MONSTERS[random.choice(game_constants.MONSTERS_POOL[GAME.level])](x, y))
+            if alg_array[x][y] == 4:
+                creatures.append(m_slime(x, y))
             if alg_array[x][y] == 7:
                 entities.append(n_door(x, y, SPRITESHEET_ENTITIES.image_at((0, 32, 32, 32)), SPRITESHEET_ENTITIES.image_at((32, 32, 32, 32), colorkey = game_constants.COLOR_COLORKEY)))
                 terrain[x][y].passable = False
