@@ -319,6 +319,11 @@ def b_playerbase(event, args = None):
     if event == 'move':
         GAME.movetimer = 10
         dx, dy = (args[0], args[1])
+        targets = GAME.player.canAttack((dx, dy))
+        if targets:
+            GAME.player.event('attack', targets)
+            GAME.action = 'attack'
+            return
         for entity in GAME.entities: # Movement to a tile with an open-able entity.
             if entity.x == GAME.player.x + dx and entity.y == GAME.player.y + dy:
                 if 'openable' in entity.tags:
@@ -332,16 +337,43 @@ def b_playerbase(event, args = None):
                 GAME.player.x += dx
                 GAME.player.y += dy
                 GAME.action = 'move'
-        else:
-            for creature in GAME.creatures: # Movement to a tile with an enemy.
-                if (creature is not GAME.player and creature.x == GAME.player.x + dx and creature.y == GAME.player.y + dy):
-                    return
         GAME.player.currentHunger = max(0, GAME.player.currentHunger - GAME.player.stats['HungerFlat'])
         if GAME.player.currentHunger == 0:
             GAME.player.damage(1, 'starvation', None)
+    elif event == 'attack':
+        for enemy in args:
+            linearDamage(GAME.player, enemy, 0, 'physical', None)
     elif event == 'death':
         pygame.quit()
         sys.exit()
+def b_monsterbase(event, args = None):
+    this = args[0]
+    if event == 'turn':
+        if game_util.distance(this, GAME.player) <= 1:
+            this.event('attack', [this])
+        elif game_util.distance(this, GAME.player) <= 3:
+            relative_pos = (this.x - GAME.player.x, this.y - GAME.player.y)
+            if abs(relative_pos[0]) >= abs(relative_pos[1]) and relative_pos[0] != 0:
+                this.event('move', (this, (-game_util.sign(relative_pos[0]), 0)))
+            elif abs(relative_pos[0]) <= abs(relative_pos[1]) and relative_pos[1] != 0:
+                this.event('move', (this, (0, -game_util.sign(relative_pos[1]))))
+    if event == 'move':
+        dx, dy = args[1][0], args[1][1]
+        if GAME.placeFree(this.x + dx, this.y + dy): # Movement to a free tile.
+            if GAME.map[this.x + dx][this.y + dy].passable:
+                this.x += dx
+                this.y += dy
+    if event == 'attack':
+        linearDamage(this, GAME.player, this.getPhyAttack(), 'physical', None)
+    if event == 'takedamage':
+        origin, amount, type, subtype = args[1], args[2], args[3], args[4]
+        if this.currentHitPoints - amount <= 0:
+            this.event('die', [this])
+            return
+        else:
+            this.currentHitPoints -= amount
+    if event == 'die':
+        GAME.creatures.remove(this)
 
 #STATUS
 class s_hunger(game_classes.Component):
@@ -370,69 +402,20 @@ class s_health(game_classes.Component):
             self.color = game_constants.COLOR_RED
 
 # EFFECTS
-class e_getused(game_classes.Component):
-    def execute(self, x=0, y=0):
-        self.parent.used = True
+def e_getused(target):
+    target.used = True
 
-        # DIRECT EFFECTS
-class e_flatheal(game_classes.Component):
-    def __init__(self, parent, amount):
-        super().__init__(parent)
-        self.amount = amount
-    def execute(self):
-        if self.parent.hp + self.amount > self.parent.stats[0]:
-            value = self.parent.stats[0] - self.parent.hp
-            GAME.addLogMessage(self.parent.name + ' heals to max!', game_constants.COLOR_HEAL)
-        else:
-            value = self.amount
-            GAME.addLogMessage(self.parent.name + ' heals for ' + str(value) + '.', game_constants.COLOR_HEAL)
-        self.parent.hp += value
-class e_percheal(game_classes.Component):
-    def __init__(self, parent, percent = 0.25):
-        super().__init__(parent)
-        self.percent = percent
-    def execute(self):
-        if math.floor(self.parent.stats[0]*self.percent + self.parent.hp) > self.parent.stats[0]:
-            value = self.parent.stats[0] - self.parent.hp
-            GAME.addLogMessage(self.parent.name + ' heals to max!', game_constants.COLOR_HEAL)
-        else:
-            value = math.floor(self.parent.stats[0]*self.percent)
-            GAME.addLogMessage(self.parent.name + ' heals for ' + str(value) + '.', game_constants.COLOR_HEAL)
-        self.parent.hp += value
-class e_venom(game_classes.Component):
-    def __init__(self, parent, amount, turns = -1):
-        super().__init__(parent)
-        self.amount = amount
-        self.turns = turns
-    def execute(self):
-        if self.turns != 0:
-            self.turns -= 1
-            GAME.addLogMessage(self.parent.name + ' takes ' + str(self.amount) + ' damage from venom.', consants.COLOR_VENOM)
-            self.parent.damage(self.amount)
-class e_createbomb(game_classes.Component):
-    def __init__(self, parent, turns, radius, damage):
-        super().__init__(parent)
-        self.turns = turns
-        self.radius = radius
-        self.damage = damage
-    def execute(self):
-        GAME.entities.append(n_bomb(self.parent.x, self.parent.y, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), self.turns, self.radius, self.damage))
-        GAME.addLogMessage('The bomb will explode in ' + str(self.turns) + ' turns!', game_constants.COLOR_ALLY)
-class e_eat(game_classes.Component):
-    def __init__(self, parent, amount):
-        super().__init__(parent)
-        self.amount = amount
-    def execute(self):
-        if self.parent.hunger + self.amount > game_constants.MAX_HUNGER:
-            value = game_constants.MAX_HUNGER - self.parent.hunger
-            GAME.addLogMessage(self.parent.name + ' is full!', game_constants.COLOR_HEAL)
-        else:
-            value = self.amount
-            GAME.addLogMessage(self.parent.name + ' eats.', game_constants.COLOR_HEAL)
-        self.parent.hunger += value
+# DIRECT EFFECTS
+def e_flatheal(target, amount):
+    if target.currentHitPoints + amount > target.getMaxHitPoints():
+        value = target.getMaxHitPoints() - target.currentHitPoints
+        GAME.addLogMessage(target.name + ' heals to max!', game_constants.COLOR_HEAL)
+    else:
+        value = amount
+        GAME.addLogMessage(target.name + ' heals for ' + str(value) + '.', game_constants.COLOR_HEAL)
+    target.currentHitPoints += value
 
-        # DISTANCE EFFECTS
-
+# DISTANCE EFFECTS
 class e_createbomb_l():
     def __init__(self, turns, radius, damage):
         self.turns = turns
@@ -558,7 +541,7 @@ class t_unbreakable_wall(game_classes.Tile):
 # MONSTERS
 class m_slime(game_classes.Monster):
     def __init__(self, x, y):
-        super().__init__(x, y, [], [SPRITESHEET_MONSTERS.image_at((0, 0, 32, 32))], 'Slime', 100, [], [])
+        super().__init__(x, y, [], SPRITESHEET_MONSTERS.images_at((32*x, 0, 32, 32) for x in range(3)), 'Slime', 100, [], [(b_monsterbase, 50)], slime_stats())
 
 # SPECIAL ITEMS
 class i_null(game_classes.Item):
@@ -583,19 +566,6 @@ class i_equipnull(game_classes.Item):
         self.sprite_list = None
 
 # CONSUMABLES
-class i_minorhealpotion(game_classes.Consumable):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                         y = y,
-                         tags = ['healing', 'potion'],
-                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((0, 0, 32, 32), game_constants.COLOR_COLORKEY)],
-                         name = 'Minor heal potion',
-                         color = game_constants.COLOR_WHITE,
-                         size = 1,
-                         description = [[('Heals the user.', game_constants.COLOR_WHITE)],
-                                    [('* Amount: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_GREEN)]],
-                         effects = [e_flatheal(GAME.player, 10), e_getused(self)],
-                         useCondition = [(c_playnotfullhealth, [])])
 class i_bomb(game_classes.Consumable):
     def __init__(self, x, y):
         super().__init__(x = x,
@@ -669,32 +639,11 @@ class i_diamond(game_classes.Consumable):
                          useCondition = [c_notusable])
 
 # EQUIPMENT BEHAVIORS
-class b_doublehealth(game_classes.Component):
-    def execute(self):
-        self.parent.stats[0] *= 2
+
 
 # EQUIPMENT
-class i_magichelmet_action(game_classes.Component):
-    def onEquip(self):
-        self.parent.modifiers = [b_doublehealth(GAME.player)]
-        for modifier in self.parent.modifiers:
-            GAME.player.modifiers.append(modifier)
-    def onUnequip(self):
-        for modifier in self.parent.modifiers:
-            GAME.player.modifiers.remove(modifier)
-class i_magichelmet(game_classes.Equipment):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                        y = y,
-                        tags = ['magical'],
-                        sprite_list = SPRITESHEET_EQUIPMENT_HEAD.images_at_loop([(i*32, 0, 32, 32) for i in range(4)], colorkey = game_constants.COLOR_COLORKEY),
-                        name = 'Magic helmet',
-                        color = game_constants.COLOR_WHITE,
-                        size = 6,
-                        description = [[('Increases user health by ', game_constants.COLOR_WHITE), ('100 %', game_constants.COLOR_RED)]],
-                        slot = 2,
-                        actionEquipment = i_magichelmet_action,
-                        requirements = [c_playnotfullhealth])
+def hero_sword(x, y):
+    return game_classes.LongSword(x, y, ['sword', 'weapon'], [SPRITESHEET_PLAYER.image_at((0,0,32,32))], 'Hero\'s Sword', game_constants.COLOR_CYAN, 2, [], None)
 
 # SKILL TREES
 class skill_healthup(game_classes.Skill):
@@ -718,7 +667,7 @@ class p_normal(game_classes.Player):
                         sprite_list = SPRITESHEET_PLAYER.images_at_loop([(i*32, 0, 32, 32) for i in range(8)], colorkey = game_constants.COLOR_COLORKEY),
                         portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
                         stats = player_basicstats(),
-                        equipment = [None for i in range(8)],
+                        equipment = [hero_sword(0, 0)] + [None for i in range(7)],
                         modifiers = [],
                         status = [s_health(self), s_hunger(self)],
                         skilltree = [skill_healthup(0, (8, 0), (None, 2, None, 1), [], 3),
@@ -868,12 +817,17 @@ def player_basicstats():
                 'HealingMult': 1,
                 'HungerFlat': 0,
                 'MaxCarry': 0,
+
+                'PhyArmorFlat': 0,
+                'PhyArmorMult': 1,
+                'MagArmorFlat': 0,
+                'MagArmorMult': 1,
                 'DamageReceivedMult': 1,
 
                 'HitPointsRegenFlat': 0,
                 'HitPointsRegenMult': 1,
                 'PhyAttackFlat': 0,
-                'PhysAttackMult': 1,
+                'PhyAttackMult': 1,
                 'PhyCritDamage': 0,
                 'PhyCritChance': 0,
                 'PhyBleedChance': 0,
@@ -902,3 +856,59 @@ def player_basicstats():
                 'EmpEffectivenessMult': 1,
                 'EmpDuration': 0
     }
+def slime_stats():
+    return {   'HitPointsFlat': 20,
+                'HitPointsMult': 1,
+
+                'MagicPointsMult': 0,
+                'MagicPointsFlat': 0,
+
+                'HealingMult': 1,
+
+                'PhyArmorFlat': 0,
+                'PhyArmorMult': 1,
+                'MagArmorFlat': 0,
+                'MagArmorMult': 1,
+                'DamageReceivedMult': 1,
+
+                'HitPointsRegenFlat': 0,
+                'HitPointsRegenMult': 1,
+                'PhyAttackFlat': 0,
+                'PhyAttackMult': 1,
+                'PhyCritDamage': 0,
+                'PhyCritChance': 0,
+                'PhyBleedChance': 0,
+                'PhyBleedMult': 1,
+                'PhyBleedDuration': 0,
+                'PhyStunChance': 0,
+                'PhyStunDuration': 0,
+                'PhyConfuseChance': 0,
+                'PhyConfuseDuration': 0,
+                'StrEffectivenessMult': 1,
+                'StrDuration': 0,
+
+                'MagicPointsRegenFlat': 0,
+                'MagicPointsRegenMult': 1,
+                'MagAttackFlat': 0,
+                'MagAttackMult': 1,
+                'MagCritDamage': 0,
+                'MagCritChance': 0,
+                'MagBleedChance': 0,
+                'MagBleedMult': 1,
+                'MagBleedDuration': 0,
+                'MagStunChance': 0,
+                'MagStunDuration': 0,
+                'MagConfuseChance': 0,
+                'MagConfuseDuration': 0,
+                'EmpEffectivenessMult': 1,
+                'EmpDuration': 0
+    }
+
+def linearDamage(origin, target, amount, type, subtype):
+    if type == 'physical':
+        damage = math.ceil((origin.getPhyAttack()+amount)*(4**(-target.getPhyArmor()/300)))
+    elif type == 'magical':
+        damage = math.ceil((origin.getMagAttack()+amount)*(4**(-target.getMagArmor()/300)))
+    GAME.addLogMessage(origin.name + ' damages ' + target.name + ' for ' + str(damage) + '.', game_constants.COLOR_LIGHTRED)
+    origin.event('dodamage', (target, origin, damage, type, subtype))
+    target.event('takedamage', (target, origin, damage, type, subtype))

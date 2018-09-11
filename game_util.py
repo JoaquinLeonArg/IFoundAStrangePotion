@@ -18,6 +18,12 @@ def rectangle_intersects(r1, r2):
     x1, y1, w1, h1 = r1
     x2, y2, w2, h2 = r2
     return not (x1 + w1 + 1 < x2 or x1 > x2 + w2 + 1 or y1 + h1 + 1 < y2 or y1 > y2 + h2 + 1)
+def sign(value):
+    if value < 0:
+        return -1
+    if value > 0:
+        return 1
+    return 0
 
 # TEXT
 def draw_text(surface, text, x, y, font, text_color):

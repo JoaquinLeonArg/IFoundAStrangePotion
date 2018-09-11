@@ -74,7 +74,7 @@ FONT_PERFECTDOS_SMALL = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf'
 FONT_PERFECTDOS_MEDIUM = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 20)
 FONT_PERFECTDOS_LARGE = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 32)
 
-LOG_MAX_LENGTH = 6
+LOG_MAX_LENGTH = 10
 LOG_MAX_LENGTH_LONG = 20
 LOG_WIDTH = 400
 

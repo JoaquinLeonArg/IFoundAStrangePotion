@@ -122,10 +122,10 @@ class Game:
         self.rd_log = True
     def creaturesExecuteTurn(self):
         for creature in self.creatures:
-            creature.event('turn')
+            creature.event('turn', [creature])
     def entitiesExecuteTurn(self):
         for entity in self.entities:
-            entity.event('turn')
+            entity.event('turn', [entity])
     def placeFree(self, x, y):
         for obj in self.creatures:
             if (obj.x == x and obj.y == y):
@@ -378,6 +378,7 @@ class SelectTarget():
         GAME.rd_win = True
     def basicControls(self, key):
         pass
+
 class Entity:
     def __init__(self, x, y, tags, sprite_list, behaviors = []):
         self.x = x
@@ -401,24 +402,41 @@ class Entity:
         for e in sorted(self.behaviors, key = lambda x: x[1]):
             e[0](event_name, args)
 class Creature(Entity):
-    def __init__(self, x, y, tags, sprite_list, behaviors):
+    def __init__(self, x, y, tags, sprite_list, behaviors, stats):
         super().__init__(x, y, tags, sprite_list, behaviors)
         self.priority = 1
         self.behaviors = behaviors
+        self.stats = stats
+        self.currentHitPoints = self.getMaxHitPoints()
+        self.currentMagicPoints = self.getMaxMagicPoints()
     def isEnemy(self, target):
         return 'enemy' in self.tags
+    def draw(self):
+        super().draw()
+        if self.visible:
+            pygame.draw.rect(GAME.surface_entities, game_constants.COLOR_GREEN, ((self.x*32 - GAME.camera.x)+1, (self.y*32 - GAME.camera.y)+30, self.currentHitPoints/self.getMaxHitPoints()*(self.sprite.get_width()-1), 1))
+
+    def getMaxHitPoints(self):
+        return (100 + self.stats['HitPointsFlat'])*self.stats['HitPointsMult']
+    def getMaxMagicPoints(self):
+        return (100 + self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']
+    def getPhyAttack(self):
+        return (10 + self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult']
+    def getMagAttack(self):
+        return (10 + self.stats['MagAttackFlat'])*self.stats['MagAttackMult']
+    def getPhyArmor(self):
+        return (1 + self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult']
+    def getMagArmor(self):
+        return (1 + self.stats['MagArmorFlat'])*self.stats['MagArmorMult']
 class Player(Creature):
     def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, modifiers, status, skilltree, behaviors):
-        super().__init__(x, y, ['player'], sprite_list, behaviors)
+        super().__init__(x, y, ['player'], sprite_list, behaviors, stats)
         self.inventory = []
         self.name = 'Player'
         self.portrait_list = portrait_list
         self.xp = 0
         self.level = 1
         self.equipment = equipment
-        self.stats = stats
-        self.currentHitPoints = self.getMaxHitPoints()
-        self.currentMagicPoints = self.getMaxMagicPoints()
         self.currentHunger = game_constants.MAX_HUNGER
         self.active = True
         self.priority = 2
@@ -443,14 +461,14 @@ class Player(Creature):
             elif key == 'right':
                 self.event('move', (1, 0))
                 game_util.map_light_update(GAME.light_map)
-    def canAttack(self, relative_position):
+    def canAttack(self, relativePosition):
         if self.equipment[0] == None: # No weapon equipped
-            return first(game_util.distance(self, creature) <= 1 for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x, self.y) + relative_position)
-        return self.equipment[0].canAttack(relative_position)
-    def getMaxHitPoints(self):
-        return (100 + self.stats['HitPointsFlat'])*self.stats['HitPointsMult']
-    def getMaxMagicPoints(self):
-        return (100 + self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']
+            return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x + relativePosition[0], self.y + relativePosition[1]) and 'monster' in creature.tags]
+        print('Targets: ' + str(self.equipment[0].attackTargets(relativePosition)))
+        print('     Relative position: ' + str(relativePosition))
+        print('     Absolute position: ' + str((self.x + relativePosition[0], self.y + relativePosition[1])))
+        return self.equipment[0].attackTargets(relativePosition) # Weapon range
+
     def getMaxCarry(self):
         return 10 + self.stats['MaxCarry']
     def getHungerDepletion(self):
@@ -458,8 +476,8 @@ class Player(Creature):
     def getCurrentCarry(self):
         return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item != None])
 class Monster(Creature):
-    def __init__(self, x, y, tags, sprite_list, name, maxHp, drops, behaviors):
-        super().__init__(x, y, tags, sprite_list, behaviors)
+    def __init__(self, x, y, tags, sprite_list, name, maxHp, drops, behaviors, stats):
+        super().__init__(x, y, tags, sprite_list, behaviors, stats)
         self.name = name
         self.maxHp = maxHp
         self.hp = maxHp
@@ -478,7 +496,7 @@ class Equipment(Item):
         super().__init__(x, y, tags, sprite_list, name, color, size, description)
         self.slot = slot
         self.itemType = 'equipment'
-        self.actionEquipment = actionEquipment(self)
+        #self.actionEquipment = actionEquipment(self)
         self.requirements = [requirement(self) for requirement in requirements]
     def equip(self):
         self.actionEquipment.onEquip()
@@ -489,6 +507,8 @@ class Equipment(Item):
 class Weapon(Equipment):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description, actionEquipment, requirements = []):
         super().__init__(x, y, tags, sprite_list, name, color, size, description, 0, actionEquipment, requirements = [])
+    def attackTargets(self, relativePosition):
+        pass
 class Consumable(Item):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, useCondition = [], charges = 1):
         super().__init__(x, y, tags, sprite_list, name, color, size, description)
@@ -531,6 +551,20 @@ class ConsumableMap(Consumable):
             action.execute(x, y)
         if self.used:
             GAME.player.inventory.remove(self)
+
+class ShortSword(Weapon):
+    def attackTargets(self, relativePosition):
+        return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition and 'monster' in creature.tags]
+class LongSword(Weapon):
+    def attackTargets(self, relativePosition):
+        if relativePosition[0] == 0:
+            return [creature for creature in GAME.creatures if creature is not self and creature.x in [GAME.player.x + 1, GAME.player.x, GAME.player.x - 1] and creature.y == GAME.player.y + relativePosition[1] and 'monster' in creature.tags]
+        elif relativePosition[1] == 0:
+            return [creature for creature in GAME.creatures if creature is not self and creature.x == GAME.player.x + relativePosition[0] and creature.y in [GAME.player.y + 1, GAME.player.y, GAME.player.y - 1] and 'monster' in creature.tags]
+class Spear(Weapon):
+    def attackTargets(self, relativePosition):
+        return [creature for creature in GAME.creatures if creature is not self and ((creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition or (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition*2) and 'monster' in creature.tags]
+
 class Potion():
     def __init__(self, name, sprite_list, actions, conditions, startCharges, maxCharges, description):
         self.name = name
