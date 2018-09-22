@@ -91,6 +91,7 @@ KEY_EQUIPMENT = pygame.K_e
 KEY_STATS = pygame.K_z
 KEY_STATUS = pygame.K_t
 KEY_SKILLTREE = pygame.K_k
+KEY_MINIMAP = pygame.K_m
 
 KEY_USE = pygame.K_s
 KEY_CANCEL = pygame.K_c

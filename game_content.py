@@ -1,5 +1,6 @@
 import game_classes
 import game_constants
+import game_effects
 import random
 import math
 import game_util
@@ -112,7 +113,7 @@ class Window_SearchInventory(game_classes.WindowList):
         super().input(key)
         if key == 'use':
             item = [item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)][self.index]
-            if item.size <= GAME.player.stats[10] - GAME.player.currentWeight() and len(GAME.player.inventory) < 30:
+            if item.size <= GAME.player.getMaxCarry() - GAME.player.getCurrentCarry() and len(GAME.player.inventory) < 30:
                 GAME.player.inventory.append(item)
                 GAME.items.remove(item)
                 self.getItems()
@@ -208,6 +209,25 @@ class Window_Status(game_classes.WindowList):
                 game_util.draw_text_bg(self.surface, String(self.items[itemIndex][2]), self.surface.get_width() - game_constants.POPUP_OFFSET_X - 48, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1], game_constants.COLOR_SHADOW)
     def getItems(self):
         self.items = [(status.name, status.color, status.turns) for status in GAME.player.status]
+class Window_Stats(game_classes.WindowList):
+    def __init__(self):
+        super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
+    def input(self, key):
+        super().input(key)
+        if key == 'cancel':
+            GAME.player.active = True
+            # GAME.controlsText = game_constants.TEXT_ONMAP
+    def update(self):
+        super().update()
+        game_util.draw_text_bg(self.surface, 'Stats', game_constants.POPUP_OFFSET_X + 4, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW) # Draw title
+        self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
+        for itemIndex in range(len(self.items)): # Draw item names
+            game_util.draw_text_bg(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW)
+            game_util.draw_text_bg(self.surface, str(self.items[itemIndex][1]), self.surface.get_width() - game_constants.POPUP_OFFSET_X - 48, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW)
+    def getItems(self):
+        self.items =    [('Max HP: ', GAME.player.getMaxHitPoints()),
+                        ('Max MP: ', GAME.player.getMaxMagicPoints()),
+                        ('Physical Attack: ', GAME.player.getPhyAttack())]
 class Window_SkillTree(game_classes.Window):
     def __init__(self):
         super().__init__(190, 16, game_constants.SPRITE_SKILLTREE)
@@ -643,7 +663,7 @@ class i_diamond(game_classes.Consumable):
 
 # EQUIPMENT
 def hero_sword(x, y):
-    return game_classes.LongSword(x, y, ['sword', 'weapon'], [SPRITESHEET_PLAYER.image_at((0,0,32,32))], 'Hero\'s Sword', game_constants.COLOR_CYAN, 2, [], None)
+    return game_classes.LongSword(x, y, ['sword', 'weapon'], [SPRITESHEET_PLAYER.image_at((0,0,32,32))], 'Hero\'s Sword', game_constants.COLOR_CYAN, 2, [], [('PhyAttackFlat', 1000)], [])
 
 # SKILL TREES
 class skill_healthup(game_classes.Skill):
@@ -667,7 +687,8 @@ class p_normal(game_classes.Player):
                         sprite_list = SPRITESHEET_PLAYER.images_at_loop([(i*32, 0, 32, 32) for i in range(8)], colorkey = game_constants.COLOR_COLORKEY),
                         portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
                         stats = player_basicstats(),
-                        equipment = [hero_sword(0, 0)] + [None for i in range(7)],
+                        equipment = [None for i in range(7)],
+                        inventory = [hero_sword(0, 0)],
                         modifiers = [],
                         status = [s_health(self), s_hunger(self)],
                         skilltree = [skill_healthup(0, (8, 0), (None, 2, None, 1), [], 3),

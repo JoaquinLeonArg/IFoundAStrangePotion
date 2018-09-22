@@ -62,18 +62,22 @@ def game_input():
         if GAME.player.active and keystates[pygame.K_UP]:
             GAME.player.input('up')
             GAME.rd_sta = True
+            GAME.rd_min = True
             return
         elif GAME.player.active and keystates[pygame.K_DOWN]:
             GAME.player.input('down')
             GAME.rd_sta = True
+            GAME.rd_min = True
             return
         elif GAME.player.active and keystates[pygame.K_LEFT]:
             GAME.player.input('left')
             GAME.rd_sta = True
+            GAME.rd_min = True
             return
         elif GAME.player.active and keystates[pygame.K_RIGHT]:
             GAME.player.input('right')
             GAME.rd_sta = True
+            GAME.rd_min = True
             return
 
     for event in events:
@@ -90,7 +94,7 @@ def game_input():
                 GAME.surface_entities.fill(game_constants.COLOR_COLORKEY)
 
                 if event.key == game_constants.KEY_INVENTORY:
-                    if GAME.windows == [] and len(GAME.player.inventory) > 0:
+                    if GAME.windows == []:
                         GAME.windows.append(game_content.Window_PlayerInventory())
                         GAME.controlsText = game_constants.TEXT_ONINVENTORY
                         GAME.rd_win = True
@@ -99,9 +103,16 @@ def game_input():
                         GAME.windows.append(game_content.Window_SearchInventory())
                         GAME.controlsText = game_constants.TEXT_ONSEARCH
                         GAME.rd_win = True
+                    elif len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) == 0:
+                        GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
                 if event.key == game_constants.KEY_STATUS:
                     if GAME.windows == []:
                         GAME.windows.append(game_content.Window_Status())
+                        GAME.controlsText = game_constants.TEXT_ONSTATUS
+                        GAME.rd_win = True
+                if event.key == game_constants.KEY_STATS:
+                    if GAME.windows == []:
+                        GAME.windows.append(game_content.Window_Stats())
                         GAME.controlsText = game_constants.TEXT_ONSTATUS
                         GAME.rd_win = True
                 if event.key == game_constants.KEY_EQUIPMENT:
@@ -157,6 +168,9 @@ def game_input():
                         GAME.long_log = False
                     else:
                         GAME.long_log = True
+                if event.key == game_constants.KEY_MINIMAP:
+                    GAME.rd_min = True
+                    GAME.show_minimap = (GAME.show_minimap + 1) % 3
 def menu_input():
     global STATE
     global MENU
@@ -211,6 +225,8 @@ def draw_game():
     GAME.update_rects.append(SCREEN.blit(GAME.surface_log, (0, game_constants.CAMERA_HEIGHT*32)))
     GAME.update_rects.append(SCREEN.blit(GAME.surface_status, (game_constants.LOG_WIDTH + 4, game_constants.CAMERA_HEIGHT*32))) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
 
+    draw_minimap()
+
     if GAME.rd_win: # CHECK IF SURFACE_WINDOWS NEEDS TO BE REDRAWN
         GAME.rd_win = False
         draw_windows()
@@ -237,6 +253,29 @@ def draw_map():
             elif GAME.map[x][y].discovered == True:
                 GAME.surface_map.blit(GAME.map[x][y].sprite_shadow, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
     pygame.draw.rect(GAME.surface_map, game_constants.COLOR_BORDER, pygame.Rect(game_constants.BORDER_THICKNESS, game_constants.BORDER_THICKNESS, game_constants.CAMERA_WIDTH*32-game_constants.BORDER_THICKNESS*2, game_constants.CAMERA_HEIGHT*32-game_constants.BORDER_THICKNESS*2), game_constants.BORDER_THICKNESS*2)
+def draw_minimap():
+    if len(GAME.windows) != 0:
+        return
+    if GAME.show_minimap == 0:
+        minimap_ratio = 2
+    elif GAME.show_minimap == 1:
+        minimap_ratio = 4
+    else:
+        minimap_ratio = 0
+    minimap_x = 10
+    minimap_y = game_constants.CAMERA_HEIGHT*32-len(GAME.map[0])*minimap_ratio-10
+    minimap_width = len(GAME.map)*minimap_ratio
+    minimap_height = len(GAME.map[0])*minimap_ratio
+    if GAME.show_minimap != 2:
+        pygame.draw.rect(SCREEN, game_constants.COLOR_DARKGRAY, pygame.Rect(minimap_x, minimap_y, minimap_width, minimap_height))
+        for x in range(len(GAME.map)):
+            for y in range(len(GAME.map[x])):
+                if GAME.map[x][y].discovered:
+                    if GAME.map[x][y].passable:
+                        pygame.draw.rect(SCREEN, game_constants.COLOR_GREEN, pygame.Rect(minimap_x+x*minimap_ratio, minimap_y+y*minimap_ratio, minimap_ratio, minimap_ratio))
+                    else:
+                        pygame.draw.rect(SCREEN, game_constants.COLOR_ENEMY, pygame.Rect(minimap_x+x*minimap_ratio, minimap_y+y*minimap_ratio, minimap_ratio, minimap_ratio))
+        pygame.draw.rect(SCREEN, game_constants.COLOR_YELLOW, pygame.Rect(minimap_x+GAME.player.x*minimap_ratio, minimap_y+GAME.player.y*minimap_ratio, minimap_ratio, minimap_ratio))
 def draw_entities():
     GAME.update_rects.append(GAME.surface_entities.fill(game_constants.COLOR_COLORKEY))
     for creature in GAME.creatures:

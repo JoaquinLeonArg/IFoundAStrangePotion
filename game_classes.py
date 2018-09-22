@@ -82,6 +82,7 @@ class Game:
         self.turn_counter = 0
         self.controlsText = game_constants.TEXT_ONMAP
         self.long_log = False
+        self.show_minimap = 0
 
         # Level and map variables
         self.level = 0
@@ -113,6 +114,7 @@ class Game:
         self.rd_log = True
         self.rd_sta = True
         self.rd_win = True
+        self.rd_min = True
         self.update_rects = [] # Currently not used
 
         # Description Window
@@ -402,11 +404,12 @@ class Entity:
         for e in sorted(self.behaviors, key = lambda x: x[1]):
             e[0](event_name, args)
 class Creature(Entity):
-    def __init__(self, x, y, tags, sprite_list, behaviors, stats):
+    def __init__(self, x, y, tags, sprite_list, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors)
         self.priority = 1
         self.behaviors = behaviors
         self.stats = stats
+        self.statmods = statmods
         self.currentHitPoints = self.getMaxHitPoints()
         self.currentMagicPoints = self.getMaxMagicPoints()
     def isEnemy(self, target):
@@ -416,22 +419,29 @@ class Creature(Entity):
         if self.visible:
             pygame.draw.rect(GAME.surface_entities, game_constants.COLOR_GREEN, ((self.x*32 - GAME.camera.x)+1, (self.y*32 - GAME.camera.y)+30, self.currentHitPoints/self.getMaxHitPoints()*(self.sprite.get_width()-1), 1))
 
+    def getStatMod(self, stat_name):
+        statmods = sorted(self.statmods, key = lambda x: x.priority)
+        amount = 0
+        for mod in statmods:
+            amount = mod(self, stat_name, amount)
+        return amount
+
     def getMaxHitPoints(self):
         return (100 + self.stats['HitPointsFlat'])*self.stats['HitPointsMult']
     def getMaxMagicPoints(self):
         return (100 + self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']
     def getPhyAttack(self):
-        return (10 + self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult']
+        return (10 + self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult'] + self.getStatMod('PhyAttack')
     def getMagAttack(self):
-        return (10 + self.stats['MagAttackFlat'])*self.stats['MagAttackMult']
+        return (10 + self.stats['MagAttackFlat'])*self.stats['MagAttackMult'] + self.getStatMod('MagAttack')
     def getPhyArmor(self):
-        return (1 + self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult']
+        return (1 + self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult'] + self.getStatMod('PhyArmor')
     def getMagArmor(self):
-        return (1 + self.stats['MagArmorFlat'])*self.stats['MagArmorMult']
+        return (1 + self.stats['MagArmorFlat'])*self.stats['MagArmorMult'] + self.getStatMod('MagArmor')
 class Player(Creature):
-    def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, modifiers, status, skilltree, behaviors):
-        super().__init__(x, y, ['player'], sprite_list, behaviors, stats)
-        self.inventory = []
+    def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, inventory, modifiers, status, skilltree, behaviors, statmods = []):
+        super().__init__(x, y, ['player'], sprite_list, behaviors, stats, statmods)
+        self.inventory = inventory
         self.name = 'Player'
         self.portrait_list = portrait_list
         self.xp = 0
@@ -464,9 +474,6 @@ class Player(Creature):
     def canAttack(self, relativePosition):
         if self.equipment[0] == None: # No weapon equipped
             return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x + relativePosition[0], self.y + relativePosition[1]) and 'monster' in creature.tags]
-        print('Targets: ' + str(self.equipment[0].attackTargets(relativePosition)))
-        print('     Relative position: ' + str(relativePosition))
-        print('     Absolute position: ' + str((self.x + relativePosition[0], self.y + relativePosition[1])))
         return self.equipment[0].attackTargets(relativePosition) # Weapon range
 
     def getMaxCarry(self):
@@ -476,8 +483,8 @@ class Player(Creature):
     def getCurrentCarry(self):
         return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item != None])
 class Monster(Creature):
-    def __init__(self, x, y, tags, sprite_list, name, maxHp, drops, behaviors, stats):
-        super().__init__(x, y, tags, sprite_list, behaviors, stats)
+    def __init__(self, x, y, tags, sprite_list, name, maxHp, drops, behaviors, stats, statmods = []):
+        super().__init__(x, y, tags, sprite_list, behaviors, stats, statmods)
         self.name = name
         self.maxHp = maxHp
         self.hp = maxHp
@@ -492,21 +499,28 @@ class Item(Entity):
         self.color = color
         self.description = description
 class Equipment(Item):
-    def __init__(self, x, y, tags, sprite_list, name, color, size, description, slot, actionEquipment, requirements = []):
+    def __init__(self, x, y, tags, sprite_list, name, color, size, description, slot, stats, mods, requirements = []):
         super().__init__(x, y, tags, sprite_list, name, color, size, description)
         self.slot = slot
         self.itemType = 'equipment'
-        #self.actionEquipment = actionEquipment(self)
+        self.stats = stats
+        self.mods = mods
         self.requirements = [requirement(self) for requirement in requirements]
     def equip(self):
-        self.actionEquipment.onEquip()
+        for stat, value in self.stats:
+            GAME.player.stats[stat] += value
+        for mod in self.mods:
+            GAME.player.statmods.append(mod)
     def unequip(self):
-        self.actionEquipment.onUnequip()
+        for stat, value in self.actionEquipment:
+            GAME.player.stats[stat] -= value
+        for mod in self.mods:
+            GAME.player.statmods.remove(mod)
     def canEquip(self):
-        return all(requirement.execute() for requirement in self.requirements)
+        return all(requirement() for requirement in self.requirements)
 class Weapon(Equipment):
-    def __init__(self, x, y, tags, sprite_list, name, color, size, description, actionEquipment, requirements = []):
-        super().__init__(x, y, tags, sprite_list, name, color, size, description, 0, actionEquipment, requirements = [])
+    def __init__(self, x, y, tags, sprite_list, name, color, size, description, stats, mods, requirements = []):
+        super().__init__(x, y, tags, sprite_list, name, color, size, description, 0, stats, mods, requirements = [])
     def attackTargets(self, relativePosition):
         pass
 class Consumable(Item):
