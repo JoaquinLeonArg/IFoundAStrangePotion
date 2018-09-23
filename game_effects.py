@@ -7,6 +7,8 @@ class linearStat():
     def execute(self, target, stat_name, current):
         if self.stat_name == stat:
             return self.amount
+    def getDescription(self):
+        return [('Increases ____ by __.', game_constants.COLOR_GREEN)]
 
 class nullifyStat():
     def __init__(self, priority, stat_name):
@@ -15,3 +17,5 @@ class nullifyStat():
     def execute(self, target, stat_name, current):
         if self.stat_name == stat:
             return 0
+    def getDescription(self):
+        return [('You have no ____ anymore.', game_constants.COLOR_RED)]
