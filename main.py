@@ -33,6 +33,7 @@ def game_init():
     game_content.SCREEN = SCREEN
     game_util.GAME = GAME
     game_util.SCREEN = SCREEN
+
 def game_loop():
     while True:
         if STATE == 0:

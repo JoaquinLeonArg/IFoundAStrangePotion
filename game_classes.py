@@ -423,7 +423,7 @@ class Creature(Entity):
         statmods = sorted(self.statmods, key = lambda x: x.priority)
         amount = 0
         for mod in statmods:
-            amount = mod(self, stat_name, amount)
+            amount = mod.execute(self, stat_name, amount)
         return amount
 
     def getMaxHitPoints(self):
@@ -431,13 +431,13 @@ class Creature(Entity):
     def getMaxMagicPoints(self):
         return (100 + self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']
     def getPhyAttack(self):
-        return (10 + self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult'] + self.getStatMod('PhyAttack')
+        return (10 + self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult'] + self.getStatMod('PhyAttackFlat')
     def getMagAttack(self):
-        return (10 + self.stats['MagAttackFlat'])*self.stats['MagAttackMult'] + self.getStatMod('MagAttack')
+        return (10 + self.stats['MagAttackFlat'])*self.stats['MagAttackMult'] + self.getStatMod('MagAttackFlat')
     def getPhyArmor(self):
-        return (1 + self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult'] + self.getStatMod('PhyArmor')
+        return (1 + self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult'] + self.getStatMod('PhyArmorFlat')
     def getMagArmor(self):
-        return (1 + self.stats['MagArmorFlat'])*self.stats['MagArmorMult'] + self.getStatMod('MagArmor')
+        return (1 + self.stats['MagArmorFlat'])*self.stats['MagArmorMult'] + self.getStatMod('MagArmorFlat')
 class Player(Creature):
     def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, inventory, modifiers, status, skilltree, behaviors, statmods = []):
         super().__init__(x, y, ['player'], sprite_list, behaviors, stats, statmods)
@@ -492,35 +492,48 @@ class Monster(Creature):
         self.behaviors = behaviors
         self.tags = ['monster'] + tags
 class Item(Entity):
-    def __init__(self, x, y, tags, sprite_list, name, color, size, description):
+    def __init__(self, x, y, tags, sprite_list, name, rarity, size, description):
         super().__init__(x, y, tags, sprite_list)
         self.name = name
         self.size = size
-        self.color = color
+        self.rarity = rarity
+        if self.rarity == 'Common':
+            self.color = game_constants.COLOR_WHITE
+        elif self.rarity == 'Rare':
+            self.color = game_constants.COLOR_BLUE
+        elif self.rarity == 'Mythic':
+            self.color = game_constants.COLOR_CYAN
+        elif self.rarity == 'Antique':
+            self.color = game_constants.COLOR_ORANGE
+        if self.rarity == 'Divine':
+            self.color = game_constants.COLOR_DARKRED
+        else:
+            self.color = game_constants.COLOR_GRAY
         self.description = description
 class Equipment(Item):
-    def __init__(self, x, y, tags, sprite_list, name, color, size, description, slot, stats, mods, requirements = []):
-        super().__init__(x, y, tags, sprite_list, name, color, size, description)
+    def __init__(self, x, y, name, rarity, size, description, slot, stats, mods, requirements, tags, sprite_list):
+        super().__init__(x, y, tags, sprite_list, name, rarity, size, description)
         self.slot = slot
         self.itemType = 'equipment'
         self.stats = stats
         self.mods = mods
         self.requirements = [requirement(self) for requirement in requirements]
     def equip(self):
+        print(self.stats)
         for stat, value in self.stats:
             GAME.player.stats[stat] += value
         for mod in self.mods:
             GAME.player.statmods.append(mod)
     def unequip(self):
-        for stat, value in self.actionEquipment:
+        for stat, value in self.stats:
             GAME.player.stats[stat] -= value
         for mod in self.mods:
             GAME.player.statmods.remove(mod)
     def canEquip(self):
         return all(requirement() for requirement in self.requirements)
 class Weapon(Equipment):
-    def __init__(self, x, y, tags, sprite_list, name, color, size, description, stats, mods, requirements = []):
-        super().__init__(x, y, tags, sprite_list, name, color, size, description, 0, stats, mods, requirements = [])
+    def __init__(self, x, y, tags, sprite_list, name, rarity, size, description, stats, mods, requirements = []):
+        super().__init__(x, y, name, rarity, size, description, 0, stats, mods, requirements, tags, sprite_list)
     def attackTargets(self, relativePosition):
         pass
 class Consumable(Item):

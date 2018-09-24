@@ -1,7 +1,7 @@
-name;rarity;size;flavor;slot;stats;mods;requirements;tags;sprite position
-Cowboy hat;Common;1;A hat once owned by a cowboy.;1;ExpGainMult: 1, Counterattack: 10;nullifyStat(100> 'MagAttackFlat');;;0, 0
-Heart locket;Common;1;It's a bit warm.;6;HitPointsFlat: 100, HitPointsMult: 20;linearStat(10> 'PhyAttackFlat'> 123), nullifyStat(100> 'MagicPoints');;;0, 0
-Golden necklace;Mythic;1;Pretty and shiny.;6;PhyCritDamage: 50;;;;0, 0
-Golden ring;Mythic;1;Wearing it makes you feel a bit luckier.;5;PhyCritChance: 20;;;;0, 0
-Silver ring;Rare;1;Wearing it makes you feel a bit smarter.;5;MagCritChance: 30;;;;0, 0
-Ring of vitality;Rare;2;Wearing it makes you feel a bit healthier.;5;HitpointsRegenFlat: 1;;;;0, 0
+name;rarity;size;description;slot;stats;mods;requirements;tags;sprite
+Cowboy hat;Common;1;Once owned by a space cowboy.;1;ExpGainedMult: 1, PhyAttackFlat: 10;nullifyStat(100> 'MagAttackMult');;;sword1
+Heart locket;Common;1;It's warm.;6;HitPointsFlat: 100, HitPointsMult: 20;;;;0, 0
+Golden necklace;Mythic;1;Feels lucky.;6;PhyCritDamage: 50;;;;0, 0
+Golden ring;Mythic;1;Feels lucky.;5;PhyCritChance: 20;;;;0, 0
+Silver ring;Rare;1;You feel smarter just by looking at it.;5;MagCritChance: 30;;;;0, 0
+Ring of vitality;Rare;2;Doesn't look too fancy.;5;HitpointsRegenFlat: 1;;;;0, 0

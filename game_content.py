@@ -1,6 +1,7 @@
 import game_classes
 import game_constants
 import game_effects
+import game_parsers
 import random
 import math
 import game_util
@@ -227,7 +228,8 @@ class Window_Stats(game_classes.WindowList):
     def getItems(self):
         self.items =    [('Max HP: ', GAME.player.getMaxHitPoints()),
                         ('Max MP: ', GAME.player.getMaxMagicPoints()),
-                        ('Physical Attack: ', GAME.player.getPhyAttack())]
+                        ('Physical Attack: ', GAME.player.getPhyAttack()),
+                        ('Magical Atack: ', GAME.player.getMagAttack())]
 class Window_SkillTree(game_classes.Window):
     def __init__(self):
         super().__init__(190, 16, game_constants.SPRITE_SKILLTREE)
@@ -665,6 +667,7 @@ class i_diamond(game_classes.Consumable):
 def hero_sword(x, y):
     return game_classes.LongSword(x, y, ['sword', 'weapon'], [SPRITESHEET_PLAYER.image_at((0,0,32,32))], 'Hero\'s Sword', game_constants.COLOR_CYAN, 2, [], [('PhyAttackFlat', 1000)], [])
 
+
 # SKILL TREES
 class skill_healthup(game_classes.Skill):
     def __init__(self, index, pos, move, req, maxRank):
@@ -688,7 +691,7 @@ class p_normal(game_classes.Player):
                         portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
                         stats = player_basicstats(),
                         equipment = [None for i in range(7)],
-                        inventory = [hero_sword(0, 0)],
+                        inventory = [hero_sword(0, 0), equipment('Cowboy hat')],
                         modifiers = [],
                         status = [s_health(self), s_hunger(self)],
                         skilltree = [skill_healthup(0, (8, 0), (None, 2, None, 1), [], 3),
@@ -863,7 +866,7 @@ def player_basicstats():
 
                 'MagicPointsRegenFlat': 0,
                 'MagicPointsRegenMult': 1,
-                'MagAttackFlat': 0,
+                'MagAttackFlat': 100,
                 'MagAttackMult': 1,
                 'MagCritDamage': 0,
                 'MagCritChance': 0,
@@ -924,6 +927,10 @@ def slime_stats():
                 'EmpEffectivenessMult': 1,
                 'EmpDuration': 0
     }
+
+def equipment(name, x = 0, y = 0):
+    item = game_parsers.get_equipment(name)
+    return game_classes.Equipment(x, y, *(item[i] if i != 9 else game_parsers.get_animation('resources/graphics/equipment/' + item[i] + '.png') for i in range(10)))
 
 def linearDamage(origin, target, amount, type, subtype):
     if type == 'physical':
