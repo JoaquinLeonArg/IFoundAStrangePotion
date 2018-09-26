@@ -11,7 +11,6 @@ class linearStat():
             return current
     def getDescription(self):
         return [('Increases ____ by __.', game_constants.COLOR_GREEN)]
-
 class nullifyStat():
     def __init__(self, priority, stat_name):
         self.priority = priority

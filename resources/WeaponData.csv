@@ -1,0 +1,2 @@
+name;rarity;size;description;type;stats;mods;requirements;tags;sprite;sprite_attack
+Holy sword;Divine;5;Emits an aura of purity.;LongSword;PhyAttackFlat: 100, PhyAttackMult: 20;nullifyStat(100> 'MagAttackMult');;;sword2;slash1

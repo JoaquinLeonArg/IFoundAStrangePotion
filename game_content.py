@@ -1,6 +1,5 @@
 import game_classes
 import game_constants
-import game_effects
 import game_parsers
 import random
 import math
@@ -30,31 +29,38 @@ class Window_PlayerInventory(game_classes.WindowList):
     def __init__(self):
         super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
     def input(self, key):
-        super().input(key)
-        if key == 'use':
-            item = GAME.player.inventory[self.index]
-            self.active = False
-            if item.itemType == 'consumable':
-                self.popup = game_classes.WindowPopupList(self, 'consumable', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, [("Use", game_constants.COLOR_WHITE), ("Drop", game_constants.COLOR_WHITE), ("Cancel", game_constants.COLOR_WHITE)])
-                # GAME.controlsText = game_constants.TEXT_ONPOPUP
-            elif item.itemType == 'equipment':
-                if GAME.player.inventory[self.index].canEquip():
-                    color = game_constants.COLOR_WHITE
-                else:
-                    color = game_constants.COLOR_DARKGRAY
-                self.popup = game_classes.WindowPopupList(self, 'equipment', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, [("Equip", color), ("Drop", game_constants.COLOR_WHITE), ("Cancel", game_constants.COLOR_WHITE)])
-                # GAME.controlsText = game_constants.TEXT_ONPOPUP
-            GAME.windows.append(self.popup)
-            # GAME.windows.append(self.popupwindow)
-        elif key == 'cancel':
+        if self.items:
+            super().input(key)
+            if key == 'use':
+                item = GAME.player.inventory[self.index]
+                self.active = False
+                if item.itemType == 'consumable':
+                    self.popup = game_classes.WindowPopupList(self, 'consumable', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, [("Use", game_constants.COLOR_WHITE), ("Drop", game_constants.COLOR_WHITE), ("Cancel", game_constants.COLOR_WHITE)])
+                    # GAME.controlsText = game_constants.TEXT_ONPOPUP
+                elif item.itemType == 'equipment':
+                    if GAME.player.inventory[self.index].canEquip():
+                        color = game_constants.COLOR_WHITE
+                    else:
+                        color = game_constants.COLOR_DARKGRAY
+                    self.popup = game_classes.WindowPopupList(self, 'equipment', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, [("Equip", color), ("Drop", game_constants.COLOR_WHITE), ("Cancel", game_constants.COLOR_WHITE)])
+                    # GAME.controlsText = game_constants.TEXT_ONPOPUP
+                GAME.windows.append(self.popup)
+                # GAME.windows.append(self.popupwindow)
+        if key == 'cancel':
+            super().input(key)
             GAME.player.active = True
             # GAME.controlsText = game_constants.TEXT_ONMAP
     def update(self):
         super().update()
         game_util.draw_text_bg(self.surface, 'Inventory', game_constants.POPUP_OFFSET_X + 4, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW) # Draw title
-        self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
-        for itemIndex in range(len(self.items)): # Draw item names
-            game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
+        if self.items:
+            self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
+            for itemIndex in range(len(self.items)): # Draw item names
+                game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
+        else:
+            game_util.draw_text_bg(self.surface, '- Empty -', game_constants.POPUP_OFFSET_X + 64,
+                                   32, game_constants.FONT_PERFECTDOS, game_constants.COLOR_GRAY,
+                                   game_constants.COLOR_SHADOW)
     def getItems(self):
         self.items = [(item.sprite_list, item.name, item.color, item.itemType, item.description) for item in GAME.player.inventory]
     def popupInput(self, key):
@@ -342,8 +348,9 @@ def b_playerbase(event, args = None):
         GAME.movetimer = 10
         dx, dy = (args[0], args[1])
         targets = GAME.player.canAttack((dx, dy))
+        tiles = GAME.player.tilesAttack((dx, dy))
         if targets:
-            GAME.player.event('attack', targets)
+            GAME.player.event('attack', args = (targets, tiles))
             GAME.action = 'attack'
             return
         for entity in GAME.entities: # Movement to a tile with an open-able entity.
@@ -363,8 +370,11 @@ def b_playerbase(event, args = None):
         if GAME.player.currentHunger == 0:
             GAME.player.damage(1, 'starvation', None)
     elif event == 'attack':
-        for enemy in args:
+        for enemy in args[0]:
             linearDamage(GAME.player, enemy, 0, 'physical', None)
+        for tile in args[1]:
+            if GAME.player.equipment[0] is not None:
+                GAME.visualeffects.append(game_classes.AnimationOnce(*tile, GAME.player.equipment[0].spriteattack_list))
     elif event == 'death':
         pygame.quit()
         sys.exit()
@@ -660,14 +670,6 @@ class i_diamond(game_classes.Consumable):
                          effects = [],
                          useCondition = [c_notusable])
 
-# EQUIPMENT BEHAVIORS
-
-
-# EQUIPMENT
-def hero_sword(x, y):
-    return game_classes.LongSword(x, y, ['sword', 'weapon'], [SPRITESHEET_PLAYER.image_at((0,0,32,32))], 'Hero\'s Sword', game_constants.COLOR_CYAN, 2, [], [('PhyAttackFlat', 1000)], [])
-
-
 # SKILL TREES
 class skill_healthup(game_classes.Skill):
     def __init__(self, index, pos, move, req, maxRank):
@@ -691,7 +693,7 @@ class p_normal(game_classes.Player):
                         portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
                         stats = player_basicstats(),
                         equipment = [None for i in range(7)],
-                        inventory = [hero_sword(0, 0), equipment('Cowboy hat')],
+                        inventory = [weapon('Holy sword'), equipment('Cowboy hat'), equipment('Heart locket')],
                         modifiers = [],
                         status = [s_health(self), s_hunger(self)],
                         skilltree = [skill_healthup(0, (8, 0), (None, 2, None, 1), [], 3),
@@ -930,8 +932,11 @@ def slime_stats():
 
 def equipment(name, x = 0, y = 0):
     item = game_parsers.get_equipment(name)
-    return game_classes.Equipment(x, y, *(item[i] if i != 9 else game_parsers.get_animation('resources/graphics/equipment/' + item[i] + '.png') for i in range(10)))
-
+    return game_classes.Equipment(x, y, *(item[i] if i != 9 else game_parsers.get_animation('resources/graphics/equipment/' + item[i] + '.png', repeat = True) for i in range(10)))
+def weapon(name, x = 0, y = 0):
+    item = game_parsers.get_weapon(name)
+    weapontype = item.pop(4)
+    return eval('game_classes.{}'.format(weapontype))(x, y, *(game_parsers.get_animation('resources/graphics/equipment/{}.png'.format(item[i]), repeat = True) if i == 8 else game_parsers.get_animation('resources/graphics/effects/{}.png'.format(item[i])) if i == 9 else item[i] for i in range(10)))
 def linearDamage(origin, target, amount, type, subtype):
     if type == 'physical':
         damage = math.ceil((origin.getPhyAttack()+amount)*(4**(-target.getPhyArmor()/300)))

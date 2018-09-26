@@ -330,10 +330,9 @@ def draw_status():
     #     game_util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][1], 550 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
 def draw_effects():
     for effect in (GAME.visualeffects + GAME.visualactiveeffects): # UPDATE ALL VISUAL EFFECTS AND DRAW THEM
-        GAME.update_rects.append((effect.x - GAME.camera.x, effect.y - GAME.camera.y, effect.width, effect.height))
-        effect.execute()
-        if game_util.isinscreen(effect.x, effect.y) and effect.visible:
-            GAME.update_rects.append(SCREEN.blit(effect.surface, (effect.x - GAME.camera.x, effect.y - GAME.camera.y)))
+        # GAME.update_rects.append((effect.x - GAME.camera.x, effect.y - GAME.camera.y, effect.width, effect.height))
+        effect.update()
+        effect.draw()
 def draw_windows():
     GAME.update_rects.append(GAME.surface_windows.fill(game_constants.COLOR_COLORKEY))
     for window in GAME.windows: # DRAW ALL VISIBLE IN-GAME WINDOWS
@@ -366,7 +365,7 @@ def draw_menu():
     MENU.update_rects = []
 #def draw_charselect():
 
-# MAP
+# MAPsss
 def map_init_noise(width, height):
     map_gen = []
     noise = libtcodpy.noise_new(2)

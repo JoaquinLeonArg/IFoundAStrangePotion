@@ -193,19 +193,40 @@ class Camera:
         self.x = int(game_util.clamp(self.x, 0, game_constants.MAP_WIDTH[GAME.level]*32 - game_constants.CAMERA_WIDTH*32))
         self.y = int(game_util.clamp(self.y, 0, game_constants.MAP_HEIGHT[GAME.level]*32 - game_constants.CAMERA_HEIGHT*32))
 class VisualEffect:
-    def __init__(self, x, y, width, height, image = None, period = 0):
-        self.time = 0
+    def __init__(self, x, y, visible, images):
         self.x = x
         self.y = y
-        self.visible = True
-        self.width = width
-        self.height = height
-        self.surface = pygame.Surface((width, height))
-        self.period = period
-    def execute(self):
-        self.time += 1
-        if self.period > 0:
-            self.time %= self.period
+        self.visible = visible
+        self.images = images
+        self.image = images[0]
+    def update(self):
+        pass
+    def draw(self):
+        if game_util.isinscreen(self.x*32, self.y*32) and self.visible:
+            SCREEN.blit(self.image, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y))
+    def destroy(self):
+        if self in GAME.visualactiveeffects:
+            GAME.visualactiveeffects.remove(self)
+        if self in GAME.visualeffects:
+            GAME.visualeffects.remove(self)
+class AnimationOnce(VisualEffect):
+    def __init__(self, x, y, images, rate = 1):
+        super().__init__(x, y, True, images)
+        self.rate = rate
+        self.images_qty = len(images)
+        self.frame = 0
+        self.counter_next = 0
+    def update(self):
+        self.counter_next += 1
+        if self.counter_next == game_constants.ANIMATION_WAIT*self.rate:
+            self.counter_next = 0
+            self.frame = self.frame + 1
+            if self.frame >= self.images_qty:
+                self.destroy()
+            else:
+                self.image = self.images[self.frame]
+
+"""
 class ObjectMovement(VisualEffect):
     def __init__(self, parent, ix, iy, fx, fy, travelTime, images):
         self.parent = parent
@@ -233,6 +254,7 @@ class ObjectMovement(VisualEffect):
             self.visible = True
         else:
             self.visible = False
+"""
 class Window:
     def __init__(self, x, y, sprite):
         self.x, self.y = (x, y)
@@ -392,12 +414,16 @@ class Entity:
         self.sprite_list = sprite_list
         self.sprite = self.sprite_list[0]
         self.frame = 0
+        self.counter_next = 0
     def draw(self):
         if self.visible:
             GAME.update_rects.append(GAME.surface_entities.blit(self.sprite, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y)))
     def update_frame(self):
-        self.sprite = self.sprite_list[self.frame // game_constants.ANIMATION_WAIT % len(self.sprite_list)]
-        self.frame += 1
+        self.counter_next += 1
+        if self.counter_next == game_constants.ANIMATION_WAIT * 8:
+            self.counter_next = 0
+            self.frame = (self.frame + 1) % len(self.sprite_list)
+            self.sprite = self.sprite_list[self.frame]
     def destroy(self):
         GAME.entities.remove(self)
     def event(self, event_name, args = []):
@@ -472,9 +498,13 @@ class Player(Creature):
                 self.event('move', (1, 0))
                 game_util.map_light_update(GAME.light_map)
     def canAttack(self, relativePosition):
-        if self.equipment[0] == None: # No weapon equipped
+        if self.equipment[0] is None: # No weapon equipped
             return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x + relativePosition[0], self.y + relativePosition[1]) and 'monster' in creature.tags]
         return self.equipment[0].attackTargets(relativePosition) # Weapon range
+    def tilesAttack(self, relativePosition):
+        if self.equipment[0] is None: # No weapon equipped
+            return [(self.x + relativePosition[0], self.y + relativePosition[1])]
+        return self.equipment[0].attackTiles(relativePosition) # Weapon range
 
     def getMaxCarry(self):
         return 10 + self.stats['MaxCarry']
@@ -532,9 +562,12 @@ class Equipment(Item):
     def canEquip(self):
         return all(requirement() for requirement in self.requirements)
 class Weapon(Equipment):
-    def __init__(self, x, y, tags, sprite_list, name, rarity, size, description, stats, mods, requirements = []):
+    def __init__(self, x, y, name, rarity, size, description, stats, mods, requirements, tags, sprite_list, spriteattack_list):
         super().__init__(x, y, name, rarity, size, description, 0, stats, mods, requirements, tags, sprite_list)
+        self.spriteattack_list = spriteattack_list
     def attackTargets(self, relativePosition):
+        pass
+    def attackTiles(self, relativePosition):
         pass
 class Consumable(Item):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, useCondition = [], charges = 1):
@@ -582,14 +615,21 @@ class ConsumableMap(Consumable):
 class ShortSword(Weapon):
     def attackTargets(self, relativePosition):
         return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition and 'monster' in creature.tags]
+    def attackTiles(self, relativePosition):
+        return [(GAME.player.x + relativePosition[0], GAME.player.y + relativePosition[1])]
 class LongSword(Weapon):
-    def attackTargets(self, relativePosition):
+    def attackTargets(self, relativePosition): # TODO: Fix this behavior
         if relativePosition[0] == 0:
             return [creature for creature in GAME.creatures if creature is not self and creature.x in [GAME.player.x + 1, GAME.player.x, GAME.player.x - 1] and creature.y == GAME.player.y + relativePosition[1] and 'monster' in creature.tags]
         elif relativePosition[1] == 0:
             return [creature for creature in GAME.creatures if creature is not self and creature.x == GAME.player.x + relativePosition[0] and creature.y in [GAME.player.y + 1, GAME.player.y, GAME.player.y - 1] and 'monster' in creature.tags]
+    def attackTiles(self, relativePosition):
+        if relativePosition[0] == 0:
+            return [(GAME.player.x - 1, GAME.player.y + relativePosition[1]), (GAME.player.x, GAME.player.y + relativePosition[1]), (GAME.player.x + 1, GAME.player.y + relativePosition[1])]
+        elif relativePosition[1] == 0:
+            return [(GAME.player.x + relativePosition[0], GAME.player.y - 1), (GAME.player.x + relativePosition[0], GAME.player.y), (GAME.player.x + relativePosition[0], GAME.player.y + 1)]
 class Spear(Weapon):
-    def attackTargets(self, relativePosition):
+    def attackTargets(self, relativePosition): # TODO: Check if this is working as intended
         return [creature for creature in GAME.creatures if creature is not self and ((creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition or (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition*2) and 'monster' in creature.tags]
 
 class Potion():
