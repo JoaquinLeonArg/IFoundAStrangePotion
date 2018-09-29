@@ -1,10 +1,10 @@
 import pygame
 import game_constants
 import game_util
-import random
 import libtcodpy
 
 pygame.init()
+global GAME, SCREEN
 
 class Window_Description:
     def __init__(self):
@@ -77,6 +77,7 @@ class Game:
         self.visualeffects = []
         self.visualactiveeffects = []
         self.descriptionWindow = Window_Description()
+        self.player = None
 
         # General
         self.turn_counter = 0
@@ -352,7 +353,7 @@ class WindowPopupList(WindowList):
         pass
     def destroy(self):
         GAME.windows.remove(self)
-class SelectTarget():
+class SelectTarget:
     def __init__(self, parent_window, window_name, item, marker_sprite):
         self.previousCamera = (GAME.camera.x, GAME.camera.y)
         self.max_range = item.maxRange
@@ -426,7 +427,7 @@ class Entity:
             self.sprite = self.sprite_list[self.frame]
     def destroy(self):
         GAME.entities.remove(self)
-    def event(self, event_name, args = []):
+    def event(self, event_name, args = ()):
         for e in sorted(self.behaviors, key = lambda x: x[1]):
             e[0](event_name, args)
 class Creature(Entity):
@@ -438,7 +439,7 @@ class Creature(Entity):
         self.statmods = statmods
         self.currentHitPoints = self.getMaxHitPoints()
         self.currentMagicPoints = self.getMaxMagicPoints()
-    def isEnemy(self, target):
+    def isEnemy(self):
         return 'enemy' in self.tags
     def draw(self):
         super().draw()
@@ -453,17 +454,17 @@ class Creature(Entity):
         return amount
 
     def getMaxHitPoints(self):
-        return (100 + self.stats['HitPointsFlat'])*self.stats['HitPointsMult']
+        return max(int((self.stats['HitPointsFlat'])*self.stats['HitPointsMult']/100) + self.getStatMod('HitPointsFlat'), 1)
     def getMaxMagicPoints(self):
-        return (100 + self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']
+        return max(int((self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']/100) + self.getStatMod('MagicPointsFlat'), 1)
     def getPhyAttack(self):
-        return (10 + self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult'] + self.getStatMod('PhyAttackFlat')
+        return max(int((self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult']/100) + self.getStatMod('PhyAttackFlat'), 0)
     def getMagAttack(self):
-        return (10 + self.stats['MagAttackFlat'])*self.stats['MagAttackMult'] + self.getStatMod('MagAttackFlat')
+        return max(int((self.stats['MagAttackFlat'])*self.stats['MagAttackMult']/100) + self.getStatMod('MagAttackFlat'), 0)
     def getPhyArmor(self):
-        return (1 + self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult'] + self.getStatMod('PhyArmorFlat')
+        return max(int((self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult']/100) + self.getStatMod('PhyArmorFlat'), 1)
     def getMagArmor(self):
-        return (1 + self.stats['MagArmorFlat'])*self.stats['MagArmorMult'] + self.getStatMod('MagArmorFlat')
+        return max(int((self.stats['MagArmorFlat'])*self.stats['MagArmorMult']/100) + self.getStatMod('MagArmorFlat'), 1)
 class Player(Creature):
     def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, inventory, modifiers, status, skilltree, behaviors, statmods = []):
         super().__init__(x, y, ['player'], sprite_list, behaviors, stats, statmods)
@@ -509,9 +510,9 @@ class Player(Creature):
     def getMaxCarry(self):
         return 10 + self.stats['MaxCarry']
     def getHungerDepletion(self):
-        return math.max(1, 4 + self.stats['HungerFlat'])
+        return max(1, 4 + self.stats['HungerFlat'])
     def getCurrentCarry(self):
-        return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item != None])
+        return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item is not None])
 class Monster(Creature):
     def __init__(self, x, y, tags, sprite_list, name, maxHp, drops, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors, stats, statmods)
@@ -579,7 +580,7 @@ class Consumable(Item):
         self.displayCharges = self.charges == 1
         self.itemType = 'consumable'
         self.used = False
-    def use(self):
+    def use(self, *args):
         for action in self.onUse:
             action.execute()
         if self.used:
@@ -632,7 +633,7 @@ class Spear(Weapon):
     def attackTargets(self, relativePosition): # TODO: Check if this is working as intended
         return [creature for creature in GAME.creatures if creature is not self and ((creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition or (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition*2) and 'monster' in creature.tags]
 
-class Potion():
+class Potion:
     def __init__(self, name, sprite_list, actions, conditions, startCharges, maxCharges, description):
         self.name = name
         self.sprite_list = sprite_list

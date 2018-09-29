@@ -1,3 +1,5 @@
+import game_constants
+
 ###### EQUIPMENT #####
 class linearStat():
     def __init__(self, priority, stat_name, amount):

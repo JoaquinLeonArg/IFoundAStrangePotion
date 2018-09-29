@@ -1,5 +1,5 @@
-import game_effects
 import game_constants
+import game_effects # Used
 import pygame
 
 def parse_equipment():
@@ -43,7 +43,7 @@ def parse_weapons():
 def get_animation(filename, repeat = False):
     image = pygame.image.load(filename).convert()
     frame_qty = int(image.get_width()/32)
-    frames = [pygame.Surface((32, 32)).convert() for i in range(frame_qty)]
+    frames = [pygame.Surface((32, 32)).convert() for _ in range(frame_qty)]
     for i in range(len(frames)):
         frames[i].blit(image, (0, 0), (i*32, 0, 32, 32))
         frames[i].set_colorkey(game_constants.COLOR_COLORKEY, pygame.RLEACCEL)

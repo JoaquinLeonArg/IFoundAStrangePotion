@@ -10,6 +10,10 @@ import sys
 
 pygame.init()
 
+global GAME
+GAME = None
+
+
 ################################################# CONSTANTS #################################################
 
 SPRITESHEET_PLAYER = game_classes.Spritesheet('resources/graphics/player.png')
@@ -27,6 +31,7 @@ SPRITESHEET_SKILLICONS = game_classes.Spritesheet('resources/graphics/skill_icon
 # WINDOWS
 class Window_PlayerInventory(game_classes.WindowList):
     def __init__(self):
+        self.items = []
         super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
     def input(self, key):
         if self.items:
@@ -198,6 +203,7 @@ class Window_Status(game_classes.WindowList):
     def __init__(self):
         for status in GAME.player.status:
             status.update()
+        self.items = []
         super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
     def input(self, key):
         super().input(key)
@@ -212,8 +218,8 @@ class Window_Status(game_classes.WindowList):
         self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
         for itemIndex in range(len(self.items)): # Draw item names
             game_util.draw_text_bg(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1], game_constants.COLOR_SHADOW)
-            if self.items[itemIndex][2] != None:
-                game_util.draw_text_bg(self.surface, String(self.items[itemIndex][2]), self.surface.get_width() - game_constants.POPUP_OFFSET_X - 48, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1], game_constants.COLOR_SHADOW)
+            if self.items[itemIndex][2] is not None:
+                game_util.draw_text_bg(self.surface, str(self.items[itemIndex][2]), self.surface.get_width() - game_constants.POPUP_OFFSET_X - 48, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1], game_constants.COLOR_SHADOW)
     def getItems(self):
         self.items = [(status.name, status.color, status.turns) for status in GAME.player.status]
 class Window_Stats(game_classes.WindowList):
@@ -307,24 +313,24 @@ class Window_Trade(game_classes.WindowList):
         game_util.draw_text_bg(self.surface, 'Trade', game_constants.POPUP_OFFSET_X + 4, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW) # Draw title
         self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
         for itemIndex in range(len(self.items)): # Draw item names
-            if self.items[itemIndex] == None:
+            if self.items[itemIndex] is None:
                 game_util.draw_text_bg(self.surface, self.equipmentNames[itemIndex], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, game_constants.COLOR_DARKGRAY, game_constants.COLOR_SHADOW)
             else:
                 game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
     def getItems(self):
-        self.items = [(item.sprite_list, item.name, item.color, item.slot, item.description) if item != None else None for item in GAME.player.equipment]
+        self.items = [(item.sprite_list, item.name, item.color, item.slot, item.description) if item is not None else None for item in GAME.player.equipment]
     def popupInput(self, key):
         super().popupInput(key)
         if key == 'use':
             if self.popup.index == 0:
                 equipped = GAME.player.equipment[self.index]
-                if equipped != None:
+                if equipped is not None:
                     equipped.unequip()
                     GAME.player.inventory.append(equipped)
                     GAME.player.equipment[self.index] = None
             else:
                 item = GAME.player.inventory[self.popup.items[self.popup.index - 1][2]]
-                if GAME.player.equipment[item.slot] == None:
+                if GAME.player.equipment[item.slot] is None:
                     GAME.player.equipment[item.slot] = item
                     item.equip()
                 else:
@@ -343,7 +349,7 @@ class Window_Trade(game_classes.WindowList):
 #class Window_Potion(game_classes.Window):
 
 # BEHAVIORS
-def b_playerbase(event, args = None):
+def b_playerbase(event, args = ()):
     if event == 'move':
         GAME.movetimer = 10
         dx, dy = (args[0], args[1])
@@ -360,7 +366,8 @@ def b_playerbase(event, args = None):
                         entity.open()
                         return
                 elif 'exit' in entity.tags:
-                    entity.changeLevel()
+                    GAME.level += 1
+                    GAME.generateMap(map_init_dungeon)
         if GAME.placeFree(GAME.player.x + dx, GAME.player.y + dy): # Movement to a free tile.
             if GAME.map[GAME.player.x + dx][GAME.player.y + dy].passable:
                 GAME.player.x += dx
@@ -378,7 +385,7 @@ def b_playerbase(event, args = None):
     elif event == 'death':
         pygame.quit()
         sys.exit()
-def b_monsterbase(event, args = None):
+def b_monsterbase(event, args = ()):
     this = args[0]
     if event == 'turn':
         if game_util.distance(this, GAME.player) <= 1:
@@ -407,36 +414,6 @@ def b_monsterbase(event, args = None):
     if event == 'die':
         GAME.creatures.remove(this)
 
-#STATUS
-class s_hunger(game_classes.Component):
-    def update(self):
-        self.turns = None
-        if GAME.player.currentHunger > 50:
-            self.name = 'Well fed'
-            self.color = game_constants.COLOR_GREEN
-        elif GAME.player.currentHunger > 30:
-            self.name = 'Hungry'
-            self.color = game_constants.COLOR_YELLOW
-        else:
-            self.name = 'Starving'
-            self.color = game_constants.COLOR_RED
-class s_health(game_classes.Component):
-    def update(self):
-        self.turns = None
-        if self.parent.hp > self.parent.stats[0]*0.5:
-            self.name = 'Healty'
-            self.color = game_constants.COLOR_GREEN
-        elif self.parent.hp > self.parent.stats[0]*0.3:
-            self.name = 'Wounded'
-            self.color = game_constants.COLOR_YELLOW
-        else:
-            self.name = 'Dying'
-            self.color = game_constants.COLOR_RED
-
-# EFFECTS
-def e_getused(target):
-    target.used = True
-
 # DIRECT EFFECTS
 def e_flatheal(target, amount):
     if target.currentHitPoints + amount > target.getMaxHitPoints():
@@ -447,30 +424,7 @@ def e_flatheal(target, amount):
         GAME.addLogMessage(target.name + ' heals for ' + str(value) + '.', game_constants.COLOR_HEAL)
     target.currentHitPoints += value
 
-# DISTANCE EFFECTS
-class e_createbomb_l():
-    def __init__(self, turns, radius, damage):
-        self.turns = turns
-        self.radius = radius
-        self.damage = damage
-    def execute(self, x, y):
-        GAME.entities.append(n_bomb(x, y, SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY), self.turns, self.radius, self.damage))
-        GAME.addLogMessage('The bomb will explode in ' + str(self.turns) + ' turns!', game_constants.COLOR_ALLY)
-class e_damage_l():
-    def __init__(self, amount, damageType, damageSubtype):
-        self.amount = amount
-        self.damageType = damageType
-        self.damageSubtype = damageSubtype
-    def execute(self, x, y):
-        for game_classes.Monster in GAME.creatures:
-            if game_classes.Monster.x == x and game_classes.Monster.y == y:
-                game_classes.Monster.damage(self.amount, self.damageType, self.damageSubtype)
-
 # CONDITIONS
-def c_playnotfullhealth():
-    return GAME.player.currentHitPoints < GAME.player.getMaxHitPoints
-def c_playnotfullhunger():
-    return GAME.player.currentHunger < game_constants.MAX_HUNGER
 def c_notusable():
     return False
 def c_creatureinlocation(x, y):
@@ -492,6 +446,7 @@ class n_door(game_classes.Entity):
         GAME.map[self.x][self.y].transparent = True
         libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, True, True)
         game_util.map_light_update(GAME.light_map)
+        GAME.action = 'open'
     def destroy(self):
         super().destroy()
         GAME.map[self.x][self.y].passable = True
@@ -500,222 +455,55 @@ class n_door(game_classes.Entity):
         game_util.map_light_update(GAME.light_map)
     def execute_action(self):
         pass
-class n_bomb(game_classes.Entity):
-    def __init__(self, x, y, sprite, turns, radius, damage):
-        super().__init__(x, y, ['explosive', 'impassable'], [sprite])
-        self.turns = turns
-        self.radius = radius
-        self.damage = damage
-        GAME.visualactiveeffects.append(game_classes.ObjectMovement(self, GAME.player.x*32, GAME.player.y*32, x*32, y*32, 100, [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)]))
-    def execute_action(self):
-        if self.turns > 0:
-            self.turns -= 1
-        else:
-            for game_classes.Tilex in range(self.x - self.radius, self.x + self.radius+1):
-                for game_classes.Tiley in range(self.y - self.radius, self.y + self.radius+1):
-                    if game_classes.Tilex < game_constants.MAP_WIDTH[GAME.level] and game_classes.Tiley < game_constants.MAP_HEIGHT[GAME.level]:
-                        if game_util.simpledistance((game_classes.Tilex, game_classes.Tiley), (self.x, self.y)) <= self.radius:
-                            GAME.visualeffects.append(v_square_fadeout(game_classes.Tilex, game_classes.Tiley, game_constants.COLOR_RED))
-                            GAME.map[game_classes.Tilex][game_classes.Tiley].onDestroy()
-            for creature in GAME.creatures:
-                if game_util.distance(self, creature) <= self.radius:
-                    creature.damage(self.damage, 'physical', 'explosion')
-            for entity in GAME.entities:
-                if game_util.simpledistance((entity.x, entity.y), (self.x, self.y)) <= self.radius:
-                    entity.destroy()
-            game_util.map_light_update(GAME.light_map)
-            GAME.addLogMessage('You hear a loud explosion.', game_constants.COLOR_INFO)
-class n_exit(game_classes.Entity):
-    def __init__(self, x, y):
-        super().__init__(x, y, ['exit'], [SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)])
-    def changeLevel(self):
-        GAME.level += 1
-        GAME.generateMap(map_init_dungeon)
+def n_exit(x, y):
+    return game_classes.Entity(x, y, ['exit'], [SPRITESHEET_ENTITIES.image_at((64, 0, 32, 32), colorkey = game_constants.COLOR_COLORKEY)])
 
 # VISUALS
-class v_square_fadeout(game_classes.VisualEffect):
-    def __init__(self, x, y, color):
-        super().__init__(x*32, y*32, 32, 32)
-        pygame.draw.rect(self.surface, color, (0, 0, 32, 32))
-        self.maxtime = random.randint(15, 60)
-    def execute(self):
-        super().execute()
-        self.surface.set_alpha(255*(self.maxtime - self.time)/self.maxtime)
-        if self.time > self.maxtime:
-            GAME.visualeffects.remove(self)
+
 
 # TILES
-class t_cave_wall(game_classes.Tile):
-    def __init__(self, x, y):
-        if random.random() <= game_constants.CHANCE_WALL1TREASURE:
-            self.has_treasure = True
-            sprite_normal = SPRITESHEET_TILES.image_at((0, 32*random.choice([0, 1, 2]), 32, 32)) #TODO: CHANGE TO TREASURE ROCK SPRITE
-            sprite_dark = SPRITESHEET_TILES.image_at((0, 32*random.choice([0, 1, 2]) + 96, 32, 32))
-        else:
-            self.has_treasure = False
-            sprite_normal = SPRITESHEET_TILES.image_at((0, 32*random.choice([0, 1, 2]), 32, 32))
-            sprite_dark = SPRITESHEET_TILES.image_at((0, 32*random.choice([0, 1, 2]) + 96, 32, 32))
-        super().__init__(x, y, False, False, sprite_normal, sprite_dark)
-    def onDestroy(self):
-        GAME.map[self.x][self.y] = t_cave_floor(self.x, self.y) # Destructable
-        if self.has_treasure:
-            #GAME.items.append(i_diamond(self.x, self.y)) #TODO: Put gold or something here
-            pass
-class t_cave_floor(game_classes.Tile):
-    def __init__(self, x, y):
-        rnd = random.choice([0, 1, 2])
-        super().__init__(x, y, True, True, SPRITESHEET_TILES.image_at((32, 32*rnd, 32, 32)), SPRITESHEET_TILES.image_at((32, 32*rnd + 96, 32, 32)))
-class t_unbreakable_wall(game_classes.Tile):
-    def __init__(self, x, y):
-        rnd = random.choice([0, 1, 2])
-        super().__init__(x, y, False, False, SPRITESHEET_TILES.image_at((64, 32*rnd, 32, 32)), SPRITESHEET_TILES.image_at((64, 32*rnd + 96, 32, 32)))
+def t_cave_wall(x, y):
+    rnd = random.choice([0, 1, 2])
+    return game_classes.Tile(x, y, False, False, SPRITESHEET_TILES.image_at((0, 32*rnd, 32, 32)), SPRITESHEET_TILES.image_at((0, 32*rnd + 96, 32, 32)))
+def t_cave_floor(x, y):
+    rnd = random.choice([0, 1, 2])
+    return game_classes.Tile(x, y, True, True, SPRITESHEET_TILES.image_at((32, 32*rnd, 32, 32)), SPRITESHEET_TILES.image_at((32, 32*rnd + 96, 32, 32)))
+def t_unbreakable_wall(x, y):
+    rnd = random.choice([0, 1, 2])
+    return game_classes.Tile(x, y, False, False, SPRITESHEET_TILES.image_at((64, 32*rnd, 32, 32)), SPRITESHEET_TILES.image_at((64, 32*rnd + 96, 32, 32)))
 
 # MONSTERS
-class m_slime(game_classes.Monster):
-    def __init__(self, x, y):
-        super().__init__(x, y, [], SPRITESHEET_MONSTERS.images_at((32*x, 0, 32, 32) for x in range(3)), 'Slime', 100, [], [(b_monsterbase, 50)], slime_stats())
-
-# SPECIAL ITEMS
-class i_null(game_classes.Item):
-    def __init__(self):
-        self.itemType = ''
-        self.name = ''
-        self.x = 0
-        self.y = 0
-        self.tags = ['item']
-        self.description = []
-        self.color = game_constants.COLOR_GRAY
-        self.sprite_list = None
-class i_equipnull(game_classes.Item):
-    def __init__(self):
-        self.itemType = 'equipment'
-        self.name = 'None'
-        self.x = 0
-        self.y = 0
-        self.tag = ['item']
-        self.description = []
-        self.color = game_constants.COLOR_GRAY
-        self.sprite_list = None
-
-# CONSUMABLES
-class i_bomb(game_classes.Consumable):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                         y = y,
-                         tags = ['placeable'],
-                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)],
-                         name = 'Bomb',
-                         color = game_constants.COLOR_WHITE,
-                         size = 3,
-                         description = [[('Drops a bomb under the user\'s feet.', game_constants.COLOR_WHITE)],
-                                     [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
-                                     [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
-                                     [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]],
-                         effects = [e_createbomb(GAME.player, 4, 4, 10), e_getused(self)])
-class i_meat(game_classes.Consumable):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                         y = y,
-                         tags = ['edible', 'meat'],
-                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((64, 0, 32, 32), game_constants.COLOR_COLORKEY)],
-                         name = 'Meat',
-                         color = game_constants.COLOR_WHITE,
-                         size = 4,
-                         description = [[('Replenishes the user food bar.', game_constants.COLOR_WHITE)],
-                                    [('* Amount: ', game_constants.COLOR_WHITE), ('10 HP', game_constants.COLOR_GREEN)]],
-                         effects = [e_eat(GAME.player, 80), e_getused(self)],
-                         useCondition = [c_playnotfullhunger(GAME.player)])
-class i_throwablebomb(game_classes.ConsumableMap):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                         y = y,
-                         tags = [],
-                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((32, 0, 32, 32), game_constants.COLOR_COLORKEY)],
-                         name = 'Throwable bomb',
-                         color = game_constants.COLOR_WHITE,
-                         size = 3,
-                         description = [[('Throws a bomb.', game_constants.COLOR_WHITE)],
-                                     [('* Maximum range to throw: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
-                                     [('* Turns until explosion: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)],
-                                     [('* Explosion damage: ', game_constants.COLOR_WHITE), ('10', game_constants.COLOR_RED)],
-                                     [('* Explosion radius: ', game_constants.COLOR_WHITE), ('4', game_constants.COLOR_GRAY)]],
-                         effects = [e_createbomb_l(4, 4, 10), e_getused(self)],
-                         initialTarget = c_initonplayer,
-                         maxRange = 4)
-class i_thunderrod(game_classes.ConsumableMap):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                         y = y,
-                         tags = ['rod', 'magical'],
-                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((96, 0, 32, 32), game_constants.COLOR_COLORKEY)],
-                         name = 'Lightning rod',
-                         color = game_constants.COLOR_WHITE,
-                         size = 1,
-                         description = [],
-                         effects = [e_damage_l(5, 'magical', 'lightning'), e_getused(self)],
-                         initialTarget = c_initonplayer,
-                         maxRange = 8,
-                         targetCondition = [c_creatureinlocation(self)],
-                         charges = 3)
-class i_diamond(game_classes.Consumable):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                         y = y,
-                         tags = [],
-                         sprite_list = [SPRITESHEET_CONSUMABLES.image_at((96, 0, 32, 32), game_constants.COLOR_COLORKEY)],
-                         name = 'Diamond',
-                         color = game_constants.COLOR_CYAN,
-                         size = 3,
-                         description = [],
-                         effects = [],
-                         useCondition = [c_notusable])
+def m_slime(x, y):
+    return game_classes.Monster(x, y, [], SPRITESHEET_MONSTERS.images_at((32*x, 0, 32, 32) for x in range(3)), 'Slime', 100, [], [(b_monsterbase, 50)], slime_stats())
 
 # SKILL TREES
-class skill_healthup(game_classes.Skill):
-    def __init__(self, index, pos, move, req, maxRank):
-        super().__init__(index, pos, 'Health Up', [], SPRITESHEET_SKILLICONS.image_at((0, 0, 32, 32)), move, req, maxRank)
-    def onBuy(self):
-        super().onBuy()
-        GAME.player.baseStats[0] += 20*self.rank
-class skill_fullheal(game_classes.Skill):
-    def __init__(self, index, pos, move, req, maxRank):
-        super().__init__(index, pos, 'Full Heal', [], SPRITESHEET_SKILLICONS.image_at((0, 0, 32, 32)), move, req, maxRank)
-    def onBuy(self):
-        super().onBuy()
-        GAME.player.hp = GAME.player.stats[0]
+
 
 # PLAYABLE CHARACTERS
-class p_normal(game_classes.Player):
-    def __init__(self, x, y):
-        super().__init__(x = x,
-                        y = y,
-                        sprite_list = SPRITESHEET_PLAYER.images_at_loop([(i*32, 0, 32, 32) for i in range(8)], colorkey = game_constants.COLOR_COLORKEY),
-                        portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
-                        stats = player_basicstats(),
-                        equipment = [None for i in range(7)],
-                        inventory = [weapon('Holy sword'), equipment('Cowboy hat'), equipment('Heart locket')],
-                        modifiers = [],
-                        status = [s_health(self), s_hunger(self)],
-                        skilltree = [skill_healthup(0, (8, 0), (None, 2, None, 1), [], 3),
-                                    skill_fullheal(1, (8, 2), (None, None, 0, None), [0], 1),
-                                    skill_fullheal(2, (18, 0), (0, None, 0, 3), [], 1),
-                                    skill_fullheal(3, (16, 2), (1, 4, 2, None), [2], 1),
-                                    skill_fullheal(4, (20, 2), (3, None, 2, 5), [2], 1),
-                                    skill_fullheal(5, (20, 4), (None, None, 4, None), [4], 1)],
-                        behaviors = [(b_playerbase, 50)]
-                        )
+def p_normal(x, y):
+        return game_classes.Player(
+            x = x,
+            y = y,
+            sprite_list = SPRITESHEET_PLAYER.images_at_loop([(i*32, 0, 32, 32) for i in range(8)], colorkey = game_constants.COLOR_COLORKEY),
+            portrait_list = [SPRITESHEET_PORTRAITS.image_at((0, 0, 64, 64), colorkey = game_constants.COLOR_COLORKEY)],
+            stats = player_basicstats(),
+            equipment = [None for _ in range(7)],
+            inventory = [weapon('Holy sword'), equipment('Cowboy hat'), equipment('Heart locket')],
+            modifiers = [],
+            status = [],
+            skilltree = [],
+            behaviors = [(b_playerbase, 50)]
+            )
 
 ################################################# FUNCTIONS #################################################
 
 # MAP GENERATORS
 
-MONSTERS = [None]
-
 def map_init_dungeon(width, height):
-    def path_cost(xFrom, yFrom, xTo, yTo, alg_array):
-        if alg_array[xTo][yTo] == 0:
+    def path_cost(_1, _2, xTo, yTo, array):
+        if array[xTo][yTo] == 0:
             return 1
-        if alg_array[xTo][yTo] == 3:
+        if array[xTo][yTo] == 3:
             return 0.01
         else:
             return 10
@@ -740,8 +528,8 @@ def map_init_dungeon(width, height):
             room_prefabs_5x5.append(room)
 
 
-    alg_array = [[0 for j in range(height)] for i in range(width)]
-    terrain = [[0 for j in range(height)] for i in range(width)]
+    alg_array = [[0 for j in range(height)] for _ in range(width)]
+    terrain = [[0 for j in range(height)] for _ in range(width)]
     items = []
     entities = []
     creatures = []
@@ -768,7 +556,7 @@ def map_init_dungeon(width, height):
         for room in rooms:
             if game_util.rectangle_intersects(newRoom, room):
                 append = False
-        if append == True:
+        if append:
             rooms.append(newRoom)
     for roomIndex in range(len(rooms))[0:]:
         room = rooms[roomIndex]
@@ -832,55 +620,56 @@ def map_set_borders(map_array, width, height):
             map_array[width-1][y] = t_unbreakable_wall(width-1, y)
     return map_array
 
+
 def player_basicstats():
-    return {   'HitPointsFlat': 0,
-                'HitPointsMult': 1,
+    return {'HitPointsFlat': 100,
+            'HitPointsMult': 100,
 
-                'MagicPointsMult': 1,
-                'MagicPointsFlat': 0,
+            'MagicPointsFlat': 0,
+            'MagicPointsMult': 100,
 
-                'ExpGainedMult': 1,
-                'HealingMult': 1,
-                'HungerFlat': 0,
-                'MaxCarry': 0,
+            'ExpGainedMult': 100,
+            'HealingMult': 100,
+            'HungerFlat': 0,
+            'MaxCarry': 0,
 
-                'PhyArmorFlat': 0,
-                'PhyArmorMult': 1,
-                'MagArmorFlat': 0,
-                'MagArmorMult': 1,
-                'DamageReceivedMult': 1,
+            'PhyArmorFlat': 0,
+            'PhyArmorMult': 100,
+            'MagArmorFlat': 0,
+            'MagArmorMult': 100,
+            'DamageReceivedMult': 100,
 
-                'HitPointsRegenFlat': 0,
-                'HitPointsRegenMult': 1,
-                'PhyAttackFlat': 0,
-                'PhyAttackMult': 1,
-                'PhyCritDamage': 0,
-                'PhyCritChance': 0,
-                'PhyBleedChance': 0,
-                'PhyBleedMult': 1,
-                'PhyBleedDuration': 0,
-                'PhyStunChance': 0,
-                'PhyStunDuration': 0,
-                'PhyConfuseChance': 0,
-                'PhyConfuseDuration': 0,
-                'StrEffectivenessMult': 1,
-                'StrDuration': 0,
+            'HitPointsRegenFlat': 0,
+            'HitPointsRegenMult': 100,
+            'PhyAttackFlat': 0,
+            'PhyAttackMult': 100,
+            'PhyCritDamage': 0,
+            'PhyCritChance': 0,
+            'PhyBleedChance': 0,
+            'PhyBleedMult': 100,
+            'PhyBleedDuration': 0,
+            'PhyStunChance': 0,
+            'PhyStunDuration': 0,
+            'PhyConfuseChance': 0,
+            'PhyConfuseDuration': 0,
+            'StrEffectivenessMult': 100,
+            'StrDuration': 0,
 
-                'MagicPointsRegenFlat': 0,
-                'MagicPointsRegenMult': 1,
-                'MagAttackFlat': 100,
-                'MagAttackMult': 1,
-                'MagCritDamage': 0,
-                'MagCritChance': 0,
-                'MagBleedChance': 0,
-                'MagBleedMult': 1,
-                'MagBleedDuration': 0,
-                'MagStunChance': 0,
-                'MagStunDuration': 0,
-                'MagConfuseChance': 0,
-                'MagConfuseDuration': 0,
-                'EmpEffectivenessMult': 1,
-                'EmpDuration': 0
+            'MagicPointsRegenFlat': 0,
+            'MagicPointsRegenMult': 100,
+            'MagAttackFlat': 0,
+            'MagAttackMult': 100,
+            'MagCritDamage': 0,
+            'MagCritChance': 0,
+            'MagBleedChance': 0,
+            'MagBleedMult': 100,
+            'MagBleedDuration': 0,
+            'MagStunChance': 0,
+            'MagStunDuration': 0,
+            'MagConfuseChance': 0,
+            'MagConfuseDuration': 0,
+            'EmpEffectivenessMult': 100,
+            'EmpDuration': 0
     }
 def slime_stats():
     return {   'HitPointsFlat': 20,
@@ -937,11 +726,12 @@ def weapon(name, x = 0, y = 0):
     item = game_parsers.get_weapon(name)
     weapontype = item.pop(4)
     return eval('game_classes.{}'.format(weapontype))(x, y, *(game_parsers.get_animation('resources/graphics/equipment/{}.png'.format(item[i]), repeat = True) if i == 8 else game_parsers.get_animation('resources/graphics/effects/{}.png'.format(item[i])) if i == 9 else item[i] for i in range(10)))
-def linearDamage(origin, target, amount, type, subtype):
-    if type == 'physical':
+
+def linearDamage(origin, target, amount, maintype, subtype):
+    if maintype == 'physical':
         damage = math.ceil((origin.getPhyAttack()+amount)*(4**(-target.getPhyArmor()/300)))
-    elif type == 'magical':
+    elif maintype == 'magical':
         damage = math.ceil((origin.getMagAttack()+amount)*(4**(-target.getMagArmor()/300)))
     GAME.addLogMessage(origin.name + ' damages ' + target.name + ' for ' + str(damage) + '.', game_constants.COLOR_LIGHTRED)
-    origin.event('dodamage', (target, origin, damage, type, subtype))
-    target.event('takedamage', (target, origin, damage, type, subtype))
+    origin.event('dodamage', (target, origin, damage, maintype, subtype))
+    target.event('takedamage', (target, origin, damage, maintype, subtype))
