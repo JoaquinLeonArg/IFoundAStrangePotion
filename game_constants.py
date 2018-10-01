@@ -50,7 +50,7 @@ SPRITE_TITLE = pygame.image.load('resources/title.png')
 SPRITE_DESCRIPTIONWINDOW = pygame.image.load('resources/graphics/window_description.png')
 SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
 SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
-SPRITE_STATUS = pygame.image.load('resources/status.png')
+SPRITE_STATUS = pygame.image.load('resources/graphics/ui/ui_status.png')
 SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
 SPRITE_TRADEWINDOW = pygame.image.load('resources/graphics/window_trade.png')
 
@@ -66,7 +66,7 @@ MAP_HEIGHT = [50, 60, 70, 60]
 BORDER_THICKNESS = 2
 
 CAMERA_WIDTH = 40
-CAMERA_HEIGHT = 18
+CAMERA_HEIGHT = 22
 
 LIGHT_RADIUS = 8
 MAX_HUNGER = 1000
@@ -108,3 +108,53 @@ TEXT_ONEQUIPMENT = [('S:', 'select'), ('C:', 'go back')]
 MONSTERS_POOL = [[0], [0], [0], [0], [0], [0]]
 
 CHANCE_WALL1TREASURE = 0.5
+
+BASE_STATS = {
+    'HitPointsFlat': 20,
+    'HitPointsMult': 100,
+    'MagicPointsMult': 100,
+    'MagicPointsFlat': 0,
+
+    'HealingMult': 100,
+    'MaxCarry': 10,
+    'HungerFlat': 1,
+    'HungerMult': 100,
+
+    'PhyArmorFlat': 0,
+    'PhyArmorMult': 100,
+    'MagArmorFlat': 0,
+    'MagArmorMult': 100,
+    'DamageReceivedMult': 100,
+
+    'HitPointsRegenFlat': 0,
+    'HitPointsRegenMult': 100,
+    'PhyAttackFlat': 0,
+    'PhyAttackMult': 100,
+    'PhyCritDamage': 0,
+    'PhyCritChance': 0,
+    'PhyBleedChance': 0,
+    'PhyBleedMult': 100,
+    'PhyBleedDuration': 0,
+    'PhyStunChance': 0,
+    'PhyStunDuration': 0,
+    'PhyConfuseChance': 0,
+    'PhyConfuseDuration': 0,
+    'StrEffectivenessMult': 100,
+    'StrDuration': 0,
+
+    'MagicPointsRegenFlat': 0,
+    'MagicPointsRegenMult': 100,
+    'MagAttackFlat': 0,
+    'MagAttackMult': 100,
+    'MagCritDamage': 0,
+    'MagCritChance': 0,
+    'MagBleedChance': 0,
+    'MagBleedMult': 100,
+    'MagBleedDuration': 0,
+    'MagStunChance': 0,
+    'MagStunDuration': 0,
+    'MagConfuseChance': 0,
+    'MagConfuseDuration': 0,
+    'EmpEffectivenessMult': 100,
+    'EmpDuration': 0
+}

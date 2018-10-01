@@ -19,6 +19,7 @@ C_BLACK = (20, 20, 20)
 C_GREEN = (100, 240, 100)
 C_RED = (240, 100, 100)
 C_BLUE = (100, 100, 240)
+
 TILES = {
     0: pygame.image.load('graphics/wall.png'),
     1: pygame.image.load('graphics/floor.png'),
@@ -95,17 +96,17 @@ class Data:
         self.UIElements.sort(key=lambda e: e.z)
     def loadFile(self):
         try:
-            self.file = open('roomsData.dat', 'r')
+            self.file = open('RoomData.dat', 'r')
         except:
-            self.file = open('roomsData.dat', 'w+').close()
-            self.file = open ('roomsData.dat', 'r')
+            self.file = open('RoomData.dat', 'w+').close()
+            self.file = open ('RoomData.dat', 'r')
         try:
             self.data = json.loads(self.file.read())
         except:
             self.data = [baseroom()]
         self.file.close()
     def saveFile(self):
-        self.file = open('roomsData.dat', 'w')
+        self.file = open('RoomData.dat', 'w')
         self.file.write(json.dumps(self.data))
         self.file.close()
     def initUI(self):

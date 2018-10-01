@@ -1,6 +1,8 @@
 import game_constants
 import game_effects # Used
 import pygame
+import json
+import random
 
 def parse_equipment():
     # Equipment = (name, rarity, size, description, slot, stats, mods, requirements, tags, sprite)
@@ -39,6 +41,13 @@ def parse_weapons():
         items.append(list(values))
     file.close()
     return items
+def parse_rooms():
+    # Room = {layout{tiles, entities}, isBossRoom, value{danger, size, loot}}
+    file = open('resources/RoomData.dat', 'r')
+    items = json.loads(file.read())
+    file.close()
+    return items
+
 
 def get_animation(filename, repeat = False):
     image = pygame.image.load(filename).convert()
@@ -55,6 +64,9 @@ def get_equipment(item_name):
     return next(i for i in equipment if i[0] == item_name)
 def get_weapon(item_name):
     return next(i for i in weapons if i[0] == item_name)
+def get_room(boss = False):
+    return random.choice([room for room in rooms if room['isBossRoom'] is boss])
 
 equipment = parse_equipment()
 weapons = parse_weapons()
+rooms = parse_rooms()

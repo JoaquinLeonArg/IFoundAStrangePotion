@@ -24,6 +24,11 @@ def sign(value):
     if value > 0:
         return 1
     return 0
+def add_dicts(dict_base, dict_add):
+    for key in dict_base:
+        if key in dict_add:
+            dict_base[key] = dict_base[key] + dict_add[key]
+    return dict_base
 
 # TEXT
 def draw_text(surface, text, x, y, font, text_color):

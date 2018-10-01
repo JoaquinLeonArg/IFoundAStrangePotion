@@ -92,9 +92,9 @@ class Game:
 
         # Surfaces definition
         self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_log = pygame.Surface((402, game_constants.WINDOW_HEIGHT - game_constants.CAMERA_HEIGHT*32))
+        self.surface_log = pygame.Surface((402, 120))
         #self.surface_effects = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_status = pygame.Surface((game_constants.WINDOW_WIDTH - game_constants.LOG_WIDTH, game_constants.WINDOW_HEIGHT - game_constants.CAMERA_HEIGHT*32))
+        self.surface_status = pygame.Surface((699, 85))
         self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
         self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
 
@@ -138,10 +138,8 @@ class Game:
         self.entities.sort(key = lambda e: e.priority)
         self.creatures.sort(key = lambda c: c.priority)
     def generateMap(self, gen_function):
-        self.map, self.items, self.entities, self.creatures = gen_function(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
+        self.map, self.items, self.entities, self.creatures, self.player.x, self.player.y = gen_function(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
         self.lightmapInit()
-        self.player.x = game_constants.MAP_WIDTH[self.level]//2
-        self.player.y = game_constants.MAP_HEIGHT[self.level]//2
         self.creatures.append(self.player)
         game_util.map_light_update(self.light_map)
     def lightmapInit(self):
@@ -171,15 +169,18 @@ class Spritesheet(object):
                 for x in range(image_count)]
         return self.images_at(tups, colorkey)
 class Tile:
-    def __init__(self, x, y, passable, transparent, sprite, sprite_shadow):
+    def __init__(self, x, y, passable, transparent, sprite):
         self.x = x
         self.y = y
         self.passable = passable
         self.transparent = transparent
         self.sprite = sprite.convert()
-        self.sprite_shadow = sprite_shadow.convert()
+        self.sprite_shadow = self.sprite.convert()
         self.discovered = False
         libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, self.passable, self.transparent)
+        dark = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()), flags=pygame.SRCALPHA)
+        dark.fill((50, 50, 50, 0))
+        self.sprite_shadow.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     def onDestroy(self):
         pass
     def onWalk(self):

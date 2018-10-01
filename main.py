@@ -5,6 +5,7 @@ import random
 import math
 import game_util
 import game_constants
+import game_mapping
 import sys
 
 # GAME
@@ -12,20 +13,20 @@ def game_init():
     global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
     pygame.init()
     GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
-    SCREEN = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
-
-    pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
 
     import game_classes
     import game_content
 
+    GAME = game_classes.Game()
+    MENU = game_classes.MainMenu()
+    CLOCK = pygame.time.Clock()
+    SCREEN = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
+
+    pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
+
     STATE = 0
 
     pygame.display.set_caption('I found a strange potion')
-
-    MENU = game_classes.MainMenu()
-    GAME = game_classes.Game()
-    CLOCK = pygame.time.Clock()
 
     game_classes.GAME = GAME
     game_classes.SCREEN = SCREEN
@@ -33,6 +34,7 @@ def game_init():
     game_content.SCREEN = SCREEN
     game_util.GAME = GAME
     game_util.SCREEN = SCREEN
+    game_mapping.SCREEN = SCREEN
 
 def game_loop():
     while True:
@@ -197,7 +199,7 @@ def menu_input():
 
                         STATE = 9
                         GAME.player = game_content.p_normal(game_constants.MAP_WIDTH[0]//2, game_constants.MAP_HEIGHT[0]//2)
-                        GAME.generateMap(game_content.map_init_dungeon)
+                        GAME.generateMap(game_mapping.mapgen_dungeon)
                         GAME.creatures.append(GAME.player)
                     return
                 if event.key == game_constants.KEY_CANCEL:
@@ -207,8 +209,8 @@ def menu_input():
 
 # DRAW
 def draw_game():
-    #SCREEN.fill([255,255,255])
-
+    SCREEN.fill((0,0,0), (0, 0, game_constants.CAMERA_WIDTH*32, 8))
+    SCREEN.fill((0, 0, 0), (0, game_constants.CAMERA_HEIGHT * 32 + 8, game_constants.CAMERA_WIDTH * 32, 8))
     if GAME.rd_log: # CHECK IF SURFACE_LOG NEEDS TO BE REDRAWN
         draw_log()
         GAME.rd_log = False
@@ -220,29 +222,27 @@ def draw_game():
 
     # BLIT ALL SURFACES INTO THE MAIN SURFACE
     # , GAME.surface_effects
-    for surface in [GAME.surface_map, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 0)
-        SCREEN.blit(surface, (0, 0))
+    for surface in [GAME.surface_map, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 8)
+        SCREEN.blit(surface, (0, 8))
     draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
-    GAME.update_rects.append(SCREEN.blit(GAME.surface_log, (0, game_constants.CAMERA_HEIGHT*32)))
-    GAME.update_rects.append(SCREEN.blit(GAME.surface_status, (game_constants.LOG_WIDTH + 4, game_constants.CAMERA_HEIGHT*32))) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
+    SCREEN.blit(GAME.surface_log, (game_constants.CAMERA_WIDTH * 32 - game_constants.BORDER_THICKNESS * 2 - GAME.surface_log.get_width(), game_constants.BORDER_THICKNESS * 2 + 8))
+    SCREEN.blit(GAME.surface_status, ((game_constants.CAMERA_WIDTH * 32 - GAME.surface_status.get_width())/2, game_constants.CAMERA_HEIGHT * 32 - GAME.surface_status.get_height())) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
 
     draw_minimap()
 
-    if GAME.rd_win: # CHECK IF SURFACE_WINDOWS NEEDS TO BE REDRAWN
+    if GAME.rd_win:
         GAME.rd_win = False
         draw_windows()
         if GAME.draw_descriptionwindow:
             GAME.descriptionWindow.draw()
 
     # FOR DEBUG PURPOSES
-    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 10, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
-    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 28, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
-    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'TURN: ' + str(GAME.turn_counter), 10, 46, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 30, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'TURN: ' + str(GAME.turn_counter), 10, 66, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
 
-    pygame.display.flip() # FOR RESOLUTION CHANGE SIMPLICITY. TEST PERFORMANCE EFFECTS AND SEE WHAT'S BETTER.
-    #pygame.display.update(GAME.update_rects) # DRAW ALL THE SECTIONS ON THE SCREEN THAT UPDATED ON THIS CYCLE
+    pygame.display.flip()
     pygame.transform.scale(SCREEN, (game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), GAMEWINDOW)
-    GAME.update_rects = [] # CLEAR THE LIST OF SECTIONS TO REDRAW
 
 def draw_map():
     GAME.update_rects.append(GAME.surface_map.fill(game_constants.COLOR_BLACK))
@@ -251,7 +251,7 @@ def draw_map():
             if libtcodpy.map_is_in_fov(GAME.light_map, x, y):
                 GAME.surface_map.blit(GAME.map[x][y].sprite, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
                 GAME.map[x][y].discovered = True
-            elif GAME.map[x][y].discovered == True:
+            elif GAME.map[x][y].discovered:
                 GAME.surface_map.blit(GAME.map[x][y].sprite_shadow, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
     pygame.draw.rect(GAME.surface_map, game_constants.COLOR_BORDER, pygame.Rect(game_constants.BORDER_THICKNESS, game_constants.BORDER_THICKNESS, game_constants.CAMERA_WIDTH*32-game_constants.BORDER_THICKNESS*2, game_constants.CAMERA_HEIGHT*32-game_constants.BORDER_THICKNESS*2), game_constants.BORDER_THICKNESS*2)
 def draw_minimap():
@@ -264,7 +264,7 @@ def draw_minimap():
     else:
         minimap_ratio = 0
     minimap_x = 10
-    minimap_y = game_constants.CAMERA_HEIGHT*32-len(GAME.map[0])*minimap_ratio-10
+    minimap_y = game_constants.CAMERA_HEIGHT*32-len(GAME.map[0])*minimap_ratio-100
     minimap_width = len(GAME.map)*minimap_ratio
     minimap_height = len(GAME.map[0])*minimap_ratio
     if GAME.show_minimap != 2:
@@ -297,37 +297,6 @@ def draw_log():
         game_util.draw_text_bg(GAME.surface_log, GAME.log[x][0], 10, x*14 + 4, game_constants.FONT_PERFECTDOS_SMALL, GAME.log[x][1], game_constants.COLOR_DARKGRAY)
 def draw_status():
     GAME.surface_status.blit(game_constants.SPRITE_STATUS, (0, 0))
-
-    GAME.surface_status.blit(GAME.player.portrait_list[0], (38, 22))
-
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 16)) #DRAW HP
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 16, 200, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, pygame.Rect(248, 16, 200*GAME.player.currentHitPoints/GAME.player.getMaxHitPoints(), 13))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.currentHitPoints), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (462, 16))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.getMaxHitPoints()), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (546 - text.get_width(), 16))
-
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((0, 16, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 40)) #DRAW MANA
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 40, 200, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_CYAN, pygame.Rect(248, 40, 200*GAME.player.currentMagicPoints/GAME.player.getMaxMagicPoints(), 13))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.currentMagicPoints), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (462, 40))
-    text = game_constants.FONT_PERFECTDOS.render(str(GAME.player.getMaxMagicPoints()), False, game_constants.COLOR_WHITE)
-    GAME.surface_status.blit(text, (546 - text.get_width(), 40))
-
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((16, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (216, 64)) #DRAW FOOD
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(248, 64, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HUNGER, pygame.Rect(248, 64, 80*GAME.player.currentHunger/game_constants.MAX_HUNGER, 13))
-
-    GAME.surface_status.blit(game_content.SPRITESHEET_ICONS.image_at((32, 0, 16, 16), colorkey = game_constants.COLOR_COLORKEY), (338, 64)) #DRAW CARRY
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_DARKESTGRAY, pygame.Rect(368, 64, 80, 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, pygame.Rect(368, 64, 80*GAME.player.getCurrentCarry()/GAME.player.getMaxCarry(), 13))
-
-    # for textIndex in range(len(GAME.controlsText)): #DRAW CONTROLS
-    #     xOffset = (textIndex // 3) *200
-    #     game_util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][0], 500 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
-    #     game_util.draw_text(GAME.surface_status, GAME.controlsText[textIndex][1], 550 + xOffset, (textIndex%3)*16+4, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
 def draw_effects():
     for effect in (GAME.visualeffects + GAME.visualactiveeffects): # UPDATE ALL VISUAL EFFECTS AND DRAW THEM
         # GAME.update_rects.append((effect.x - GAME.camera.x, effect.y - GAME.camera.y, effect.width, effect.height))
@@ -408,5 +377,6 @@ def map_init_walk(width, height, floor_percent):
 
 # EXECUTION
 if __name__ == '__main__':
+    pygame.init()
     game_init()
     game_loop()
