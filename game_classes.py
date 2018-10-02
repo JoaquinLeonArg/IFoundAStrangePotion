@@ -92,9 +92,9 @@ class Game:
 
         # Surfaces definition
         self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_log = pygame.Surface((402, 120))
+        self.surface_log = pygame.Surface((409, 133))
         #self.surface_effects = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_status = pygame.Surface((699, 85))
+        self.surface_status = pygame.Surface((699, 85 + 128)) # 85 for the main sprite, 128 for the extra message box that pops up from the bottom.
         self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
         self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
 
@@ -120,6 +120,9 @@ class Game:
 
         # Description Window
         self.draw_descriptionwindow = False
+
+        # Surfaces positions
+        self.status_position_x, self.status_position_y = (game_constants.STATUS_IDLE_X, game_constants.STATUS_IDLE_Y)
     def addLogMessage(self, message, color):
         self.log.insert(0, (message, color))
         self.rd_log = True
@@ -131,7 +134,7 @@ class Game:
             entity.event('turn', [entity])
     def placeFree(self, x, y):
         for obj in self.creatures:
-            if (obj.x == x and obj.y == y):
+            if obj.x == x and obj.y == y:
                 return False
         return True
     def updateOrder(self):
@@ -507,6 +510,7 @@ class Player(Creature):
         if self.equipment[0] is None: # No weapon equipped
             return [(self.x + relativePosition[0], self.y + relativePosition[1])]
         return self.equipment[0].attackTiles(relativePosition) # Weapon range
+
 
     def getMaxCarry(self):
         return 10 + self.stats['MaxCarry']

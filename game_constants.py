@@ -31,6 +31,7 @@ COLOR_YELLOW = (210, 210, 0)
 COLOR_CYAN = (0, 100, 255)
 COLOR_ORANGE = (100, 50, 20)
 COLOR_BLUE = (10, 10, 200)
+COLOR_BROWN = (160, 90, 0)
 
 COLOR_HEAL = (0, 200, 0)
 COLOR_VENOM = (100, 10, 50)
@@ -53,6 +54,7 @@ SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
 SPRITE_STATUS = pygame.image.load('resources/graphics/ui/ui_status.png')
 SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
 SPRITE_TRADEWINDOW = pygame.image.load('resources/graphics/window_trade.png')
+SPRITE_LOG = pygame.image.load('resources/graphics/ui/ui_log.png')
 
 SPRITE_MARKER = pygame.image.load('resources/graphics/marker.png')
 
@@ -76,7 +78,7 @@ FONT_PERFECTDOS_SMALL = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf'
 FONT_PERFECTDOS_MEDIUM = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 20)
 FONT_PERFECTDOS_LARGE = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 32)
 
-LOG_MAX_LENGTH = 10
+LOG_MAX_LENGTH = 8
 LOG_MAX_LENGTH_LONG = 20
 LOG_WIDTH = 400
 
@@ -158,3 +160,9 @@ BASE_STATS = {
     'EmpEffectivenessMult': 100,
     'EmpDuration': 0
 }
+
+# Surfaces positions
+STATUS_IDLE_X = (CAMERA_WIDTH*32 - SPRITE_STATUS.get_width()) // 2
+STATUS_IDLE_Y = CAMERA_HEIGHT*32 - SPRITE_STATUS.get_height() - 128
+STATUS_HIDDEN_X = STATUS_IDLE_X
+STATUS_HIDDEN_Y = CAMERA_HEIGHT*32
