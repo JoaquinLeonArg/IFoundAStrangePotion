@@ -46,7 +46,6 @@ def game_loop():
             if GAME.movetimer > 0:
                 GAME.movetimer -= 1
             game_input()
-            GAME.descriptionWindow.update()
             for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
                 entity.update_frame()
             if GAME.action != 'none':
@@ -102,6 +101,7 @@ def game_input():
                         GAME.controlsText = game_constants.TEXT_ONINVENTORY
                         GAME.rd_win = True
                 if event.key == game_constants.KEY_SEARCH:
+                    GAME.setPopup(["Hola mundo.", "Mamá estoy en la tele"], 300)
                     if GAME.windows == [] and len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
                         GAME.windows.append(game_content.Window_SearchInventory())
                         GAME.controlsText = game_constants.TEXT_ONSEARCH
@@ -209,9 +209,7 @@ def menu_input():
 
 # DRAW
 def draw_game():
-    if GAME.rd_log: # CHECK IF SURFACE_LOG NEEDS TO BE REDRAWN
-        draw_log()
-        GAME.rd_log = False
+    draw_log()
     draw_status()
     draw_map()
     draw_entities() # SAME AS EFFECTS
@@ -221,7 +219,7 @@ def draw_game():
     for surface in [GAME.surface_map, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 8)
         SCREEN.blit(surface, (0, 8))
     draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
-    SCREEN.blit(GAME.surface_log, (game_constants.CAMERA_WIDTH * 32 - game_constants.BORDER_THICKNESS * 2 - GAME.surface_log.get_width() - 8, game_constants.BORDER_THICKNESS * 2 + 16))
+    SCREEN.blit(GAME.surface_log, (GAME.log_position_x, GAME.log_position_y))
     SCREEN.blit(GAME.surface_status, (GAME.status_position_x, GAME.status_position_y)) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
 
     draw_minimap()
@@ -234,7 +232,7 @@ def draw_game():
 
     # FOR DEBUG PURPOSES
     #GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 30, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
-    #GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
+    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
     #GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'TURN: ' + str(GAME.turn_counter), 10, 66, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
 
     SCREEN.fill((0, 0, 0), (0, 0, game_constants.CAMERA_WIDTH * 32, 8))
@@ -288,25 +286,33 @@ def draw_entities():
         if libtcodpy.map_is_in_fov(GAME.light_map, item.x, item.y):
             item.draw()
 def draw_log():
-    messages = game_constants.LOG_MAX_LENGTH
-    height = min(game_constants.LOG_MAX_LENGTH*18 + 8, len(GAME.log)*18 + 8)
-
+    if GAME.player.y < 7:
+        GAME.log_position_y += min((game_constants.LOG_HIDDEN_Y - GAME.log_position_y)*0.1, 1)
+    else:
+        GAME.log_position_y += min((game_constants.LOG_IDLE_Y - GAME.log_position_y)*0.1, 1)
     GAME.surface_log.blit(game_constants.SPRITE_LOG, (0, 0))
-    for x in range(0, min(messages, len(GAME.log))):
-        game_util.draw_text_bg(GAME.surface_log, GAME.log[x][0], 10, x*14 + 10, game_constants.FONT_PERFECTDOS_SMALL, GAME.log[x][1], game_constants.COLOR_DARKGRAY)
+    for x in range(0, min(game_constants.LOG_MAX_LENGTH, len(GAME.log))):
+        game_util.draw_text(GAME.surface_log, GAME.log[x][0], 10, x*14 + 10, game_constants.FONT_PERFECTDOS_SMALL, GAME.log[x][1])
 def draw_status():
     GAME.surface_status.fill(game_constants.COLOR_COLORKEY)
-    if GAME.player.y > len(GAME.map) - 8:
-        GAME.status_position_y += min(((game_constants.STATUS_HIDDEN_Y - GAME.status_position_y))*0.1, game_constants.WINDOW_HEIGHT*32 - 1)
+    GAME.updatePopupTime()
+    if abs(GAME.popup_target_y - GAME.popup_position_y) < 1:
+        GAME.popup_position_y = GAME.popup_target_y
+    GAME.popup_position_y += (GAME.popup_target_y - GAME.popup_position_y)*0.1
+    if GAME.player.y > len(GAME.map) - 7:
+        GAME.status_position_y += min((game_constants.STATUS_HIDDEN_Y - GAME.status_position_y)*0.1, game_constants.WINDOW_HEIGHT*32 - 1)
     else:
-        GAME.status_position_y += min(((game_constants.STATUS_IDLE_Y -GAME.status_position_y) )*0.1, game_constants.WINDOW_HEIGHT*32 - 1)
+        GAME.status_position_y += min((game_constants.STATUS_IDLE_Y - GAME.status_position_y)*0.1, game_constants.WINDOW_HEIGHT*32 - 1)
+    if GAME.popup_position_y != 0:
+        GAME.surface_status.blit(game_constants.SPRITE_POPUP, (GAME.popup_position_x, 128 - GAME.popup_position_y))
+    for index, line in enumerate(GAME.popup_lines):
+        game_util.draw_text(GAME.surface_status, line, GAME.popup_position_x + 24, 128 - GAME.popup_position_y + 12*index + 8,game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
     GAME.surface_status.blit(game_constants.SPRITE_STATUS, (0, 128))
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, (91, 8 + 128, 77*(GAME.player.currentHitPoints // GAME.player.getMaxHitPoints()), 13))
     pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, (91, 8 + 128 + 18, 77 * (GAME.player.currentMagicPoints // GAME.player.getMaxMagicPoints()), 13))
     #pygame.draw.rect(GAME.surface_status, game_constants.COLOR_BROWN, (91, 8 + 128 + 18*2, 77 * (GAME.player.getCurrentCarry() // GAME.player.getMaxCarry()), 13)) # TODO: Fix this
 def draw_effects():
     for effect in (GAME.visualeffects + GAME.visualactiveeffects): # UPDATE ALL VISUAL EFFECTS AND DRAW THEM
-        # GAME.update_rects.append((effect.x - GAME.camera.x, effect.y - GAME.camera.y, effect.width, effect.height))
         effect.update()
         effect.draw()
 def draw_windows():

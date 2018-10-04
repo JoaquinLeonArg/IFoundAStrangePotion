@@ -1,6 +1,7 @@
 import game_classes
 import game_constants
 import game_parsers
+import game_mapping
 import random
 import math
 import game_util
@@ -335,9 +336,9 @@ class Window_Trade(game_classes.WindowList):
 #class Window_Potion(game_classes.Window):
 
 # BEHAVIORS
-def b_playerbase(event, args = ()):
+def b_playerbase(event, parent, args = ()):
     if event == 'move':
-        GAME.movetimer = 10
+        GAME.movetimer = 8
         dx, dy = (args[0], args[1])
         targets = GAME.player.canAttack((dx, dy))
         tiles = GAME.player.tilesAttack((dx, dy))
@@ -353,9 +354,10 @@ def b_playerbase(event, args = ()):
                         return
                 elif 'exit' in entity.tags:
                     GAME.level += 1
-                    GAME.generateMap(map_init_dungeon)
+                    GAME.generateMap(game_mapping.mapgen_dungeon(100, 100))
         if GAME.placeFree(GAME.player.x + dx, GAME.player.y + dy): # Movement to a free tile.
             if GAME.map[GAME.player.x + dx][GAME.player.y + dy].passable:
+                GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
                 GAME.player.x += dx
                 GAME.player.y += dy
                 GAME.action = 'move'
@@ -371,7 +373,7 @@ def b_playerbase(event, args = ()):
     elif event == 'death':
         pygame.quit()
         sys.exit()
-def b_monsterbase(event, args = ()):
+def b_monsterbase(event, parent, args = ()):
     this = args[0]
     if event == 'turn':
         if game_util.distance(this, GAME.player) <= 1:
@@ -386,6 +388,7 @@ def b_monsterbase(event, args = ()):
         dx, dy = args[1][0], args[1][1]
         if GAME.placeFree(this.x + dx, this.y + dy): # Movement to a free tile.
             if GAME.map[this.x + dx][this.y + dy].passable:
+                GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
                 this.x += dx
                 this.y += dy
     if event == 'attack':

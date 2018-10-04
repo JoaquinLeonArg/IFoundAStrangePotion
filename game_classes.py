@@ -121,8 +121,32 @@ class Game:
         # Description Window
         self.draw_descriptionwindow = False
 
+        # Popup window
+        self.popup_target_y = 0
+        self.popup_time = -1
+        self.popup_lines = []
+
         # Surfaces positions
         self.status_position_x, self.status_position_y = (game_constants.STATUS_IDLE_X, game_constants.STATUS_IDLE_Y)
+        self.popup_position_x, self.popup_position_y = (game_constants.POPUP_IDLE_X, game_constants.POPUP_IDLE_Y)
+        self.log_position_x, self.log_position_y = (game_constants.LOG_IDLE_X, game_constants.LOG_IDLE_Y)
+
+    def setPopup(self, message_lines, max_time):
+        if not message_lines:
+            self.popup_target_y = 0
+            self.popup_time = -1
+        else:
+            self.popup_target_y = len(message_lines)*12 + 20
+            self.popup_time = max_time
+            self.popup_lines = message_lines
+    def updatePopupTime(self):
+        if self.popup_time > 0:
+            self.popup_time -= 1
+        elif self.popup_time == 0:
+            self.setPopup(None, 0)
+            self.popup_time = -1
+        if self.popup_time == -1 and self.popup_position_y == 0:
+            self.popup_lines = []
     def addLogMessage(self, message, color):
         self.log.insert(0, (message, color))
         self.rd_log = True
@@ -208,58 +232,43 @@ class VisualEffect:
         pass
     def draw(self):
         if game_util.isinscreen(self.x*32, self.y*32) and self.visible:
-            SCREEN.blit(self.image, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y))
+            SCREEN.blit(self.image, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y + 8))
     def destroy(self):
         if self in GAME.visualactiveeffects:
             GAME.visualactiveeffects.remove(self)
         if self in GAME.visualeffects:
             GAME.visualeffects.remove(self)
-class AnimationOnce(VisualEffect):
-    def __init__(self, x, y, images, rate = 1):
-        super().__init__(x, y, True, images)
-        self.rate = rate
-        self.images_qty = len(images)
-        self.frame = 0
+class LoopVisualEffect(VisualEffect):
+    def __init__(self, x, y, visible, images, frame_wait):
+        super().__init__(x, y, visible, images)
+        self.frame_wait = frame_wait
         self.counter_next = 0
+        self.frame = 0
     def update(self):
         self.counter_next += 1
-        if self.counter_next == game_constants.ANIMATION_WAIT*self.rate:
+        if self.counter_next == self.frame_wait:
             self.counter_next = 0
-            self.frame = self.frame + 1
-            if self.frame >= self.images_qty:
-                self.destroy()
-            else:
-                self.image = self.images[self.frame]
+            self.frame = (self.frame + 1) % len(self.images)
+            self.image = self.images[self.frame]
+class CreatureMoveVisualEffect(LoopVisualEffect):
+    def __init__(self, creature, from_pos, to_pos, duration):
+        super().__init__(creature.x, creature.y, True, creature.sprite_list[creature.frame:] + creature.sprite_list[:creature.frame], game_constants.ANIMATION_WAIT * 8)
+        self.creature = creature
+        self.dx, self.dy = to_pos[0], to_pos[1]
+        self.duration = duration
+        self.current = 0
+        self.creature.visible = False
+    def update(self):
+        self.current += 1
+        self.x += self.dx / self.duration
+        self.y += self.dy / self.duration
+        super().update()
+        if self.current == self.duration:
+            self.destroy()
+    def destroy(self):
+        super().destroy()
+        self.creature.visible = True
 
-"""
-class ObjectMovement(VisualEffect):
-    def __init__(self, parent, ix, iy, fx, fy, travelTime, images):
-        self.parent = parent
-        self.parent.visible = False
-        self.x = ix
-        self.y = iy
-        self.frame = 0
-        self.images = images
-        self.image = images[0]
-        self.width = self.image.get_width()
-        self.height = self.image.get_height()
-        self.xstep = (fx-ix)/travelTime
-        self.ystep = (fy-iy)/travelTime
-        self.surface = self.image
-        self.travelTime = travelTime
-    def execute(self):
-        if self.travelTime > 0:
-            self.x += self.xstep
-            self.y += self.ystep
-            self.travelTime -= 1
-        else:
-            GAME.visualactiveeffects.remove(self)
-            self.parent.visible = True
-        if libtcodpy.map_is_in_fov(GAME.light_map, self.parent.x, self.parent.y):
-            self.visible = True
-        else:
-            self.visible = False
-"""
 class Window:
     def __init__(self, x, y, sprite):
         self.x, self.y = (x, y)
@@ -433,7 +442,7 @@ class Entity:
         GAME.entities.remove(self)
     def event(self, event_name, args = ()):
         for e in sorted(self.behaviors, key = lambda x: x[1]):
-            e[0](event_name, args)
+            e[0](event_name, self, args)
 class Creature(Entity):
     def __init__(self, x, y, tags, sprite_list, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors)
@@ -456,7 +465,6 @@ class Creature(Entity):
         for mod in statmods:
             amount = mod.execute(self, stat_name, amount)
         return amount
-
     def getMaxHitPoints(self):
         return max(int((self.stats['HitPointsFlat'])*self.stats['HitPointsMult']/100) + self.getStatMod('HitPointsFlat'), 1)
     def getMaxMagicPoints(self):

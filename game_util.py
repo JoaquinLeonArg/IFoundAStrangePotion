@@ -32,13 +32,13 @@ def add_dicts(dict_base, dict_add):
 
 # TEXT
 def draw_text(surface, text, x, y, font, text_color):
-    rect1 = surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+2, y+2))
+    rect1 = surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+1, y+1))
     rect2 = surface.blit(font.render(text, False, text_color), (x, y))
     return rect1, rect2
 def draw_text_bg(surface, text, x, y, font, text_color, bg_color):
     text_surface = font.render(text, False, text_color)
     rect = pygame.draw.rect(surface, bg_color, pygame.Rect(x, y, text_surface.get_width(), text_surface.get_height()))
-    surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+2, y+2))
+    surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+1, y+1))
     surface.blit(font.render(text, False, text_color), (x, y))
     return rect
 

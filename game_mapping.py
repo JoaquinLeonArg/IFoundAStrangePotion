@@ -27,7 +27,7 @@ ENEMIES = [
 
 def path_cost(_1, _2, x, y, array):
     if array[x][y] == -1:
-        return 0.1
+        return 0.7
     elif array[x][y] == -2:
         return 1
     else:
@@ -56,13 +56,13 @@ def mapgen_dungeon(width, height):
             tiles[i][j] = -1
 
     # Try to add as many rooms as possible.
-    for t in range(200):
+    for t in range(100):
         room = game_parsers.get_room(boss = False)
         room_width = len(room['layout']['tiles'][0])
         room_height = len(room['layout']['tiles'])
         available_spots = [(x, y) for x in range(3, width - room_width - 3) for y in range(3, height - room_height - 3) if tiles[y][x] == -2]
         random.shuffle(available_spots)
-        for (x, y) in available_spots:
+        for (x, y) in available_spots[::2]:
             if all((not game_util.rectangle_intersects((x, y, room_width, room_height), (e['x'], e['y'], e['width'], e['height'])) for e in rooms)):
                 rooms.append({'x': x, 'y': y, 'width': room_width, 'height': room_height})
                 for i in range(room_width):
