@@ -90,10 +90,8 @@ def mapgen_dungeon(width, height):
             print(e)
             other_exit = (x, y, r)
         libtcodpy.path_compute(path, x, y, other_exit[0], other_exit[1])
-        print('Starting path from {}, {} to {}, {}'.format(x, y, other_exit[0], other_exit[1]))
         for i in range(libtcodpy.path_size(path)-1):
             a, b = libtcodpy.path_get(path, i)
-            print('Path (step {}): {}, {}'.format(i, a, b))
             tiles[a][b] = -1
 
     for i in range(len(tiles)):
@@ -104,9 +102,6 @@ def mapgen_dungeon(width, height):
         tiles[door[0]][door[1]].passable = False
         tiles[door[0]][door[1]].transparent = False
 
-    for i in tiles:
-        print(str(i))
-    print('ITEMS: {}\nENTITIES: {}\nCREATURES: {}\nPLAYER: x = {}, y = {}'.format(items, entities, creatures, player_x, player_y))
     return tiles, items, entities, creatures, player_x, player_y
 
 def map_set_borders(map_array, width, height):

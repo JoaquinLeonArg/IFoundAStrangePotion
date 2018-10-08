@@ -238,6 +238,21 @@ class VisualEffect:
             GAME.visualactiveeffects.remove(self)
         if self in GAME.visualeffects:
             GAME.visualeffects.remove(self)
+class AnimationOnce(VisualEffect):
+    def __init__(self, x, y, images, frame_wait):
+        super().__init__(x, y, True, images)
+        self.counter_next = 0
+        self.frame = 0
+        self.frame_wait = frame_wait
+    def update(self):
+        self.counter_next += 1
+        if self.counter_next == self.frame_wait:
+            self.frame += 1
+            if self.frame == len(self.images):
+                self.destroy()
+                return
+            self.counter_next = 0
+            self.image = self.images[self.frame]
 class LoopVisualEffect(VisualEffect):
     def __init__(self, x, y, visible, images, frame_wait):
         super().__init__(x, y, visible, images)
@@ -371,7 +386,6 @@ class SelectTarget:
         self.previousCamera = (GAME.camera.x, GAME.camera.y)
         self.max_range = item.maxRange
         self.valid_tiles = [(x, y) for x in range(-self.max_range, self.max_range + 1) for y in range(-self.max_range, self.max_range + 1) if item.targetCondition(x, y)]
-        print(self.valid_tiles)
         self.updatePosition()
         self.surface = pygame.Surface(((self.max_range + 1)*64, (self.max_range + 1)*64))
         self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
@@ -470,7 +484,7 @@ class Creature(Entity):
     def getMaxMagicPoints(self):
         return max(int((self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']/100) + self.getStatMod('MagicPointsFlat'), 1)
     def getPhyAttack(self):
-        return max(int((self.stats['PhyAttackFlat'])*self.stats['PhyAttackMult']/100) + self.getStatMod('PhyAttackFlat'), 0)
+        return max(int(self.stats['PhyAttackFlat']*self.stats['PhyAttackMult']/100) + self.getStatMod('PhyAttackFlat'), 0)
     def getMagAttack(self):
         return max(int((self.stats['MagAttackFlat'])*self.stats['MagAttackMult']/100) + self.getStatMod('MagAttackFlat'), 0)
     def getPhyArmor(self):
@@ -527,13 +541,10 @@ class Player(Creature):
     def getCurrentCarry(self):
         return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item is not None])
 class Monster(Creature):
-    def __init__(self, x, y, tags, sprite_list, name, maxHp, drops, behaviors, stats, statmods = []):
+    def __init__(self, x, y, tags, sprite_list, name, drops, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors, stats, statmods)
         self.name = name
-        self.maxHp = maxHp
-        self.hp = maxHp
         self.drops = drops
-        self.behaviors = behaviors
         self.tags = ['monster'] + tags
 class Item(Entity):
     def __init__(self, x, y, tags, sprite_list, name, rarity, size, description):
@@ -563,7 +574,6 @@ class Equipment(Item):
         self.mods = mods
         self.requirements = [requirement(self) for requirement in requirements]
     def equip(self):
-        print(self.stats)
         for stat, value in self.stats:
             GAME.player.stats[stat] += value
         for mod in self.mods:
@@ -660,6 +670,15 @@ class Potion:
             for action in self.actions:
                 action.execute()
             self.charges -= 1
+
+class Spell:
+    def __init__(self, name, description, sprite_list, effects, costs, cd):
+        self.name = name
+        self.description = description
+        self.sprite_list = sprite_list
+        self.effects = effects
+        self.costs = costs
+        self.cd = cd
 
 class Component:
     def __init__(self, parent):

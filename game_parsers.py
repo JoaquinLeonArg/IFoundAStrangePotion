@@ -49,12 +49,12 @@ def parse_rooms():
     return items
 
 
-def get_animation(filename, repeat = False):
+def get_animation(filename, repeat = False, size = (32, 32)):
     image = pygame.image.load(filename).convert()
-    frame_qty = int(image.get_width()/32)
-    frames = [pygame.Surface((32, 32)).convert() for _ in range(frame_qty)]
+    frame_qty = int(image.get_width()/size[0])
+    frames = [pygame.Surface((size[0], size[1])).convert() for _ in range(frame_qty)]
     for i in range(len(frames)):
-        frames[i].blit(image, (0, 0), (i*32, 0, 32, 32))
+        frames[i].blit(image, (0, 0), (i*size[0], 0, size[0], size[1]))
         frames[i].set_colorkey(game_constants.COLOR_COLORKEY, pygame.RLEACCEL)
     if repeat:
         return frames + list(reversed(frames))

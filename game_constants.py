@@ -56,6 +56,7 @@ SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
 SPRITE_TRADEWINDOW = pygame.image.load('resources/graphics/window_trade.png')
 SPRITE_LOG = pygame.image.load('resources/graphics/ui/ui_log.png')
 SPRITE_POPUP = pygame.image.load('resources/graphics/ui/ui_popup.png')
+SPRITE_POINTER = pygame.image.load('resources/graphics/ui/pointer.png')
 
 SPRITE_MARKER = pygame.image.load('resources/graphics/marker.png')
 
@@ -172,4 +173,4 @@ POPUP_IDLE_Y = 0
 LOG_IDLE_X = CAMERA_WIDTH * 32 - SPRITE_LOG.get_width() - 24
 LOG_IDLE_Y = 24
 LOG_HIDDEN_X = LOG_IDLE_X
-LOG_HIDDEN_Y = 0 # TODO: Fix log reappearing slowly (because of negative Y position?)
+LOG_HIDDEN_Y = 0 # TODO Fix log reappearing slowly because of negative Y position

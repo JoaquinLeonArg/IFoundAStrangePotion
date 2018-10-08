@@ -25,10 +25,13 @@ def sign(value):
         return 1
     return 0
 def add_dicts(dict_base, dict_add):
+    new_dict = {}
     for key in dict_base:
         if key in dict_add:
-            dict_base[key] = dict_base[key] + dict_add[key]
-    return dict_base
+            new_dict[key] = dict_add[key]
+        else:
+            new_dict[key] = dict_base[key]
+    return new_dict
 
 # TEXT
 def draw_text(surface, text, x, y, font, text_color):

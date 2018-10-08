@@ -1,6 +1,6 @@
 import game_constants
 
-###### EQUIPMENT #####
+# EQUIPMENT STAT MODS #
 class linearStat():
     def __init__(self, priority, stat_name, amount):
         self.priority = priority
@@ -24,3 +24,17 @@ class nullifyStat():
             return current
     def getDescription(self):
         return [('You have no ____ anymore.', game_constants.COLOR_RED)]
+
+# SPELL EFFECTS #
+class healFlatEffect():
+    def __init__(self, parent, amount):
+        self.parent = parent
+        self.amount = amount
+    def execute(self):
+        self.parent.event('heal', (self.amount))
+class healPercentageEffect():
+    def __init__(self, parent, amount):
+        self.parent = parent
+        self.amount = amount
+    def execute(self):
+        self.parent.event('heal', (self.parent.getMaxHitPoints()*self.amount))
