@@ -5,35 +5,24 @@ import random
 import math
 import game_util
 import game_constants
+import game_content
 import game_mapping
+from game_classes import ApplicationData
+from game_classes import GameData
+from game_classes import MainMenu
 import sys
 
 # GAME
 def game_init():
-    global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
     pygame.init()
+    GameObject = Game()
     GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
-
-    import game_classes
-    import game_content
-
-    GAME = game_classes.Game()
-    MENU = game_classes.MainMenu()
     CLOCK = pygame.time.Clock()
     SCREEN = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
     STATE = 0
 
     pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
-
     pygame.display.set_caption('I found a strange potion')
-
-    game_classes.GAME = GAME
-    game_classes.SCREEN = SCREEN
-    game_content.GAME = GAME
-    game_content.SCREEN = SCREEN
-    game_util.GAME = GAME
-    game_util.SCREEN = SCREEN
-    game_mapping.SCREEN = SCREEN
 
 def game_loop():
     while True:

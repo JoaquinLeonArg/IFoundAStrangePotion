@@ -104,7 +104,7 @@ def mapgen_dungeon(width, height):
 
     return tiles, items, entities, creatures, player_x, player_y
 
-def map_set_borders(map_array, width, height):
+'''def map_set_borders(map_array, width, height):
     for x in range(0, width):
         map_array[x][0] = t_unbreakable_wall(x, 0)
         if random.randint(0,2) == 0:
@@ -119,4 +119,4 @@ def map_set_borders(map_array, width, height):
         map_array[width][y] = t_unbreakable_wall(width, y)
         if random.randint(0,2) == 0:
             map_array[width-1][y] = t_unbreakable_wall(width-1, y)
-    return map_array
+    return map_array'''

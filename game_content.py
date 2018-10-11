@@ -11,9 +11,6 @@ import sys
 
 pygame.init()
 
-global GAME
-GAME = None
-
 
 # WINDOWS
 class Window_PlayerInventory(game_classes.WindowList):

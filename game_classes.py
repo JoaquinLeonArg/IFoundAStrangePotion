@@ -2,49 +2,11 @@ import pygame
 import game_constants
 import game_util
 import libtcodpy
+from game_util import Singleton
+
 
 pygame.init()
-global GAME, SCREEN
 
-class Window_Description:
-    def __init__(self):
-        self.content_surface = pygame.Surface((game_constants.DESCWINDOW_WIDTH, game_constants.DESCWINDOW_HEIGHT))
-        self.content_surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface = pygame.Surface((game_constants.DESCWINDOW_WIDTH, game_constants.DESCWINDOW_HEIGHT))
-        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.reset()
-        self.index = 0
-        self.need_redraw = True
-        self.x = 0
-        self.y = 0
-    def updateInfo(self, icon_list, name, color, typename, content):
-        self.surface.fill(game_constants.COLOR_COLORKEY)
-        self.content_surface.fill(game_constants.COLOR_COLORKEY)
-        self.icon = [pygame.transform.scale2x(icon_list[i]) for i in range(len(icon_list))]
-        self.name = game_constants.FONT_PERFECTDOS.render(name, False, color)
-        self.typename = game_constants.FONT_PERFECTDOS_SMALL.render(typename, False, game_constants.COLOR_WHITE)
-        for lineIndex in range(len(content)):
-            xoffset = 0
-            for element in content[lineIndex]:
-                text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
-                self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
-                xoffset += text.get_width()
-        self.index = 0
-        self.need_redraw = True
-    def update(self):
-        self.index = (self.index + 1) % len(self.icon)
-    def reset(self):
-        self.updateInfo([game_constants.SPRITE_NULL], '', game_constants.COLOR_WHITE, '', [])
-    def draw(self):
-        if self.need_redraw:
-            self.surface.blit(game_constants.SPRITE_DESCRIPTIONWINDOW, (0, 0))
-            self.surface.blit(self.content_surface, (0, 0))
-            self.surface.blit(self.name, (100, 24))
-            self.surface.blit(self.typename, (100, 44))
-            self.surface.blit(game_constants.SPRITE_BACK_68X68, (16, 16))
-            self.surface.blit(self.icon[0], (16, 16)) # 0 is a placeholder, meaning no animation is shown
-            self.need_redraw = False
-            GAME.update_rects.append(GAME.surface_windows.blit(self.surface, (self.x, self.y)))
 
 class MainMenu:
     def __init__(self):
@@ -65,7 +27,7 @@ class MainMenu:
         self.rd_img = True
         self.rd_opt = True
         self.update_rects = []
-class Game:
+class Game():
     def __init__(self):
         # Initialization of game structures
         self.log = []
@@ -175,26 +137,171 @@ class Game:
             for y in range(game_constants.MAP_HEIGHT[self.level]):
                 libtcodpy.map_set_properties(self.light_map, x, y, self.map[x][y].transparent, self.map[x][y].passable)
 
-class Spritesheet(object):
-    def __init__(self, filename):
-        self.sheet = pygame.image.load(filename).convert()
-    def image_at(self, rectangle, colorkey = None): # Load a specific image from a specific rectangle
-        rect = pygame.Rect(rectangle)
-        image = pygame.Surface(rect.size).convert()
-        image.blit(self.sheet, (0, 0), rect)
-        if colorkey is not None:
-            if colorkey is -1:
-                colorkey = image.get_at((0,0))
-            image.set_colorkey(colorkey, pygame.RLEACCEL)
-        return image
-    def images_at(self, rects, colorkey = None): # Load a whole bunch of images and return them as a list
-        return [self.image_at(rect, colorkey) for rect in rects]
-    def images_at_loop(self, rects, colorkey = None):
-        return self.images_at(rects, colorkey) + list(reversed(self.images_at(rects, colorkey)))
-    def load_strip(self, rect, image_count, colorkey = None): # Load a whole strip of images
-        tups = [(rect[0]+rect[2]*x, rect[1], rect[2], rect[3])
-                for x in range(image_count)]
-        return self.images_at(tups, colorkey)
+class AbstractApplicationManager():
+    def update(self):
+        pass
+    def draw(self):
+        pass
+    def lateUpdate(self):
+        pass
+
+
+class GameManager(AbstractApplicationManager):
+    def __init__(self):
+        self.gameStatus = GameStatus()
+        self.gameCamera = GameCamera()
+    def update(self):
+        self.gameStatus.updateEntities()
+        self.updateCamera()
+    def draw(self):
+        self.gameStatus.draw()
+        pass
+    def lateUpdate(self):
+        pass
+    def updateCamera(self):
+        self.gameCamera.update(self.gameStatus.player.x, self.gameStatus.player.y)
+
+class GameStatus():
+    def __init__(self):
+        self.mapManager = MapManager()
+        self.windowManager = WindowManager()
+        self.visualEffectsManager = VisualEffectsManager()
+        self.logManager = LogManager()
+        self.uiManager = UIManager()
+
+        self.level = 0
+        self.show_minimap = 0
+        self.turn_count = 0
+        self.controls = {
+            'left': pygame.K_LEFT,
+            'right': pygame.K_RIGHT,
+            'down': pygame.K_DOWN,
+            'up': pygame.K_UP,
+            'select': pygame.K_s,
+            'cancel': pygame.K_c
+        }
+    def reset(self):
+        pass
+    def update(self):
+        self.mapManager.update()
+    def execute_turn(self):
+        self.turn_count += 1
+        self.mapManager.executeTurn()
+    def draw(self):
+        self.mapManager.draw()
+        self.windowManager.draw()
+        self.visualEffectsManager.draw()
+        self.logManager.draw()
+        self.uiManager.draw()
+
+class MapManager():
+    def __init__(self):
+        self.tiles = []
+        self.creatures = []
+        self.entities = []
+        self.items = []
+        self.player = None
+        self.light_map = None
+    def generateLevel(self, level_number):
+        # PUT ALGORITHM HERE
+        pass
+    def update(self):
+        for e in self.tiles + self.creatures + self.entities + self.items + [self.player]:
+            e.update()
+    def executeTurn(self):
+        for e in self.tiles + self.creatures + self.entities + self.items + [self.player]:
+            e.execute_turn()
+
+class WindowManager():
+    def __init__(self):
+        self.activeWindow = None
+
+        # Popup window
+        self.popup_target_y = 0
+        self.popup_time = -1
+        self.popup_lines = []
+
+        # Surfaces positions
+        self.status_position_x, self.status_position_y = (game_constants.STATUS_IDLE_X, game_constants.STATUS_IDLE_Y)
+        self.popup_position_x, self.popup_position_y = (game_constants.POPUP_IDLE_X, game_constants.POPUP_IDLE_Y)
+        self.log_position_x, self.log_position_y = (game_constants.LOG_IDLE_X, game_constants.LOG_IDLE_Y)
+    def update(self):
+        # Update popup
+        if self.popup_time > 0: #TODO: FOR FUCKS SAKE THIS CODE LOOKS LIKE A TEN YEAR OLD WROTE IT
+            self.popup_time -= 1
+        elif self.popup_time == 0:
+            self.setPopup(None, 0)
+            self.popup_time = -1
+        if self.popup_time == -1 and self.popup_position_y == 0:
+            self.popup_lines = []
+    def setPopup(self, message_lines, max_time):
+        if not message_lines:
+            self.popup_target_y = 0
+            self.popup_time = -1
+        else:
+            self.popup_target_y = len(message_lines)*12 + 20
+            self.popup_time = max_time
+            self.popup_lines = message_lines
+
+class VisualEffectsManager():
+    def __init__(self):
+        self.effects = [] # (VisualEffect effect, Bool active)
+    def getPassiveEffects(self):
+        return [e for e in self.effects if e[1]]
+    def getActiveEffects(self):
+        return [e for e in self.effects if not e[1]]
+    def drawEffects(self):
+        for e in self.effects:
+            e.update()
+            e.draw()
+
+class LogManager():
+    def __init__(self):
+        self.log = []
+    def addMessage(self, message, color):
+        self.log.insert(0, (message, color))
+        self.rd_log = True
+
+class UIManager():
+    def __init__(self):
+        self.UIElements = []
+    def draw(self):
+        for e in self.UIElements:
+            e.update()
+            e.draw()
+
+class MenuManager(AbstractApplicationManager):
+    pass
+
+class Application(metaclass = Singleton):
+    def __init__(self):
+        self.windowResolution = (1280, 720) # TODO: IMPLEMENT A WAY TO CHANGE IT
+        self.applicationManager = MenuManager()
+        self.window = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
+        self.screen = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
+    def onFrame(self):
+        self.applicationManager.update()
+        self.applicationManager.draw()
+        self.applicationManager.lateUpdate()
+    def draw(self):
+        self.window.fill(game_constants.COLOR_BLACK)
+        self.window.blit(self.applicationManager.draw(), (0, 0))
+        pygame.transform.scale(self.window, self.windowResolution, self.screen)
+
+
+class UIElement:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.target_x, self.target_y = x, y
+    def update(self):
+        self.x += self.target_x - self.x
+        self.y += self.target_y - self.y
+    def smoothTranslate(self, to_x, to_y):
+        self.target_x, self.target_y = to_x, to_y
+    def draw(self):
+        pass
+
+
 class Tile:
     def __init__(self, x, y, passable, transparent, sprite):
         self.x = x
@@ -212,7 +319,7 @@ class Tile:
         pass
     def onWalk(self):
         pass
-class Camera:
+class GameCamera():
     def __init__(self):
         self.x = 0
         self.y = 0
@@ -446,7 +553,10 @@ class Entity:
     def draw(self):
         if self.visible:
             GAME.update_rects.append(GAME.surface_entities.blit(self.sprite, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y)))
-    def update_frame(self):
+    def update(self):
+        self.updateFrame()
+
+    def updateFrame(self):
         self.counter_next += 1
         if self.counter_next == game_constants.ANIMATION_WAIT * 8:
             self.counter_next = 0
@@ -670,7 +780,6 @@ class Potion:
             for action in self.actions:
                 action.execute()
             self.charges -= 1
-
 class Spell:
     def __init__(self, name, description, sprite_list, effects, costs, cd):
         self.name = name
@@ -680,9 +789,7 @@ class Spell:
         self.costs = costs
         self.cd = cd
 
-class Component:
-    def __init__(self, parent):
-        self.parent = parent
+
 class Skill:
     def __init__(self, index, pos, name, description, sprite, move, req, maxRank):
         self.index = index
