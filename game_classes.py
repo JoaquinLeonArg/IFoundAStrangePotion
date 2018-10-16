@@ -3,7 +3,8 @@ import game_constants
 import game_util
 import libtcodpy
 from game_util import Singleton
-
+from game_mapping import mapgen_dungeon
+from sys import exit
 
 pygame.init()
 
@@ -27,117 +28,8 @@ class MainMenu:
         self.rd_img = True
         self.rd_opt = True
         self.update_rects = []
-class Game():
-    def __init__(self):
-        # Initialization of game structures
-        self.log = []
-        self.creatures = []
-        self.camera = Camera()
-        self.windows = []
-        self.items = []
-        self.entities = []
-        self.visualeffects = []
-        self.visualactiveeffects = []
-        self.descriptionWindow = Window_Description()
-        self.player = None
 
-        # General
-        self.turn_counter = 0
-        self.controlsText = game_constants.TEXT_ONMAP
-        self.long_log = False
-        self.show_minimap = 0
-
-        # Level and map variables
-        self.level = 0
-        self.map = None
-        self.light_map = None
-
-        # Surfaces definition
-        self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_log = pygame.Surface((409, 133))
-        #self.surface_effects = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_status = pygame.Surface((699, 85 + 128)) # 85 for the main sprite, 128 for the extra message box that pops up from the bottom.
-        self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-
-        # Colorkeys and surface initialization
-        #self.surface_effects.fill(game_constants.COLOR_COLORKEY)
-        #self.surface_effects.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface_status.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface_windows.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface_windows.set_alpha(None)
-        self.surface_entities.fill(game_constants.COLOR_COLORKEY)
-        self.surface_entities.set_colorkey(game_constants.COLOR_COLORKEY)
-
-        # Player Movement control
-        self.player_moved = False
-        self.movetimer = 10
-
-        # Redraw surfaces control
-        self.rd_log = True
-        self.rd_sta = True
-        self.rd_win = True
-        self.rd_min = True
-        self.update_rects = [] # Currently not used
-
-        # Description Window
-        self.draw_descriptionwindow = False
-
-        # Popup window
-        self.popup_target_y = 0
-        self.popup_time = -1
-        self.popup_lines = []
-
-        # Surfaces positions
-        self.status_position_x, self.status_position_y = (game_constants.STATUS_IDLE_X, game_constants.STATUS_IDLE_Y)
-        self.popup_position_x, self.popup_position_y = (game_constants.POPUP_IDLE_X, game_constants.POPUP_IDLE_Y)
-        self.log_position_x, self.log_position_y = (game_constants.LOG_IDLE_X, game_constants.LOG_IDLE_Y)
-
-    def setPopup(self, message_lines, max_time):
-        if not message_lines:
-            self.popup_target_y = 0
-            self.popup_time = -1
-        else:
-            self.popup_target_y = len(message_lines)*12 + 20
-            self.popup_time = max_time
-            self.popup_lines = message_lines
-    def updatePopupTime(self):
-        if self.popup_time > 0:
-            self.popup_time -= 1
-        elif self.popup_time == 0:
-            self.setPopup(None, 0)
-            self.popup_time = -1
-        if self.popup_time == -1 and self.popup_position_y == 0:
-            self.popup_lines = []
-    def addLogMessage(self, message, color):
-        self.log.insert(0, (message, color))
-        self.rd_log = True
-    def creaturesExecuteTurn(self):
-        for creature in self.creatures:
-            creature.event('turn', [creature])
-    def entitiesExecuteTurn(self):
-        for entity in self.entities:
-            entity.event('turn', [entity])
-    def placeFree(self, x, y):
-        for obj in self.creatures:
-            if obj.x == x and obj.y == y:
-                return False
-        return True
-    def updateOrder(self):
-        self.entities.sort(key = lambda e: e.priority)
-        self.creatures.sort(key = lambda c: c.priority)
-    def generateMap(self, gen_function):
-        self.map, self.items, self.entities, self.creatures, self.player.x, self.player.y = gen_function(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
-        self.lightmapInit()
-        self.creatures.append(self.player)
-        game_util.map_light_update(self.light_map)
-    def lightmapInit(self):
-        self.light_map = libtcodpy.map_new(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
-        for x in range(game_constants.MAP_WIDTH[self.level]):
-            for y in range(game_constants.MAP_HEIGHT[self.level]):
-                libtcodpy.map_set_properties(self.light_map, x, y, self.map[x][y].transparent, self.map[x][y].passable)
-
-class AbstractApplicationManager():
+class AbstractApplicationManager(metaclass = Singleton):
     def update(self):
         pass
     def draw(self):
@@ -150,18 +42,74 @@ class GameManager(AbstractApplicationManager):
     def __init__(self):
         self.gameStatus = GameStatus()
         self.gameCamera = GameCamera()
+        self.action = None
     def update(self):
-        self.gameStatus.updateEntities()
+        self.gameStatus.update()
         self.updateCamera()
+        self.action = None
+        VisualEffectsManager.updateMoveTimer()
+        self.input()
     def draw(self):
         self.gameStatus.draw()
-        pass
     def lateUpdate(self):
         pass
     def updateCamera(self):
         self.gameCamera.update(self.gameStatus.player.x, self.gameStatus.player.y)
+    def input(self):
+        events = pygame.event.get()
+        keystates = pygame.key.get_pressed()
+        if not VisualEffectsManager().getActiveEffects() and VisualEffectsManager().moveTimer is 0 and GameStatus().player.active:
+            if keystates[pygame.K_UP]:
+                GameStatus().player.input('up')
+            if keystates[pygame.K_DOWN]:
+                GameStatus().player.input('down')
+            if keystates[pygame.K_LEFT]:
+                GameStatus().player.input('left')
+            if keystates[pygame.K_RIGHT]:
+                GameStatus().player.input('right')
+        for event in events:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                pygame.quit()
+                exit()
 
-class GameStatus():
+            if event.type == pygame.KEYDOWN and not GAME.visualactiveeffects:
+
+                if event.key == game_constants.KEY_INVENTORY and not GAME.windows:
+                    GAME.windows.append(game_content.Window_PlayerInventory())
+                if event.key == game_constants.KEY_SEARCH and not GAME.windows:
+                    if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
+                        GAME.windows.append(game_content.Window_SearchInventory())
+                    else:
+                        GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
+                if event.key == game_constants.KEY_STATUS and not GAME.windows:
+                    GAME.windows.append(game_content.Window_Status())
+                if event.key == game_constants.KEY_STATS and not GAME.windows:
+                    GAME.windows.append(game_content.Window_Stats())
+                if event.key == game_constants.KEY_EQUIPMENT and not GAME.windows:
+                    GAME.windows.append(game_content.Window_Equipment())
+                if event.key == game_constants.KEY_SKILLTREE and not GAME.windows:
+                    GAME.windows.append(game_content.Window_SkillTree())
+
+                for window in [w for w in GAME.windows if w.active]:
+                    if event.key == pygame.K_LEFT:
+                        window.input('left')
+                    if event.key == pygame.K_RIGHT:
+                        window.input('right')
+                    if event.key == pygame.K_UP:
+                        window.input('up')
+                    if event.key == pygame.K_DOWN:
+                        window.input('down')
+                    if event.key == pygame.K_USE:
+                        window.input('use')
+                    if event.key == pygame.K_CANCEL:
+                        window.input('cancel')
+
+                if event.key == game_constants.KEY_LOG:
+                    GAME.long_log = not GAME.long_log
+                if event.key == game_constants.KEY_MINIMAP:
+                    GAME.show_minimap = (GAME.show_minimap + 1) % 3
+
+class GameStatus(metaclass = Singleton):
     def __init__(self):
         self.mapManager = MapManager()
         self.windowManager = WindowManager()
@@ -169,8 +117,10 @@ class GameStatus():
         self.logManager = LogManager()
         self.uiManager = UIManager()
 
+
+        self.player = None
         self.level = 0
-        self.show_minimap = 0
+        self.showMinimap = 0
         self.turn_count = 0
         self.controls = {
             'left': pygame.K_LEFT,
@@ -200,17 +150,32 @@ class MapManager():
         self.creatures = []
         self.entities = []
         self.items = []
-        self.player = None
-        self.light_map = None
-    def generateLevel(self, level_number):
-        # PUT ALGORITHM HERE
-        pass
+        self.lightMap = None
+        self.player = GameStatus().player
+    def generateLevel(self):
+        level = GameStatus().level
+        player = GameStatus().player
+        self.map, self.items, self.entities, self.creatures, player.x, player.y = mapgen_dungeon(game_constants.MAP_WIDTH[level], game_constants.MAP_HEIGHT[level])
+        self.creatures.append(player)
+        self.initializeLight()
+        self.updateLight()
     def update(self):
         for e in self.tiles + self.creatures + self.entities + self.items + [self.player]:
             e.update()
     def executeTurn(self):
         for e in self.tiles + self.creatures + self.entities + self.items + [self.player]:
             e.execute_turn()
+    def initializeLight(self):
+        level = GameStatus().level
+        self.lightMap = libtcodpy.map_new(game_constants.MAP_WIDTH[level], game_constants.MAP_HEIGHT[level])
+        for x in range(game_constants.MAP_WIDTH[level]):
+            for y in range(game_constants.MAP_HEIGHT[level]):
+                libtcodpy.map_set_properties(self.lightMap, x, y, self.map[x][y].transparent, self.map[x][y].passable)
+    def updateLight(self):
+        libtcodpy.map_compute_fov(self.lightMap, self.player.x, self.player.y, game_constants.LIGHT_RADIUS, True, libtcodpy.FOV_BASIC)
+    def draw(self):
+        for e in self.map + self.items + self.entities + self.creatures + [self.player]:
+            e.draw()
 
 class WindowManager():
     def __init__(self):
@@ -246,6 +211,7 @@ class WindowManager():
 class VisualEffectsManager():
     def __init__(self):
         self.effects = [] # (VisualEffect effect, Bool active)
+        self.moveTimer = 10
     def getPassiveEffects(self):
         return [e for e in self.effects if e[1]]
     def getActiveEffects(self):
@@ -254,6 +220,8 @@ class VisualEffectsManager():
         for e in self.effects:
             e.update()
             e.draw()
+    def updateMoveTimer(self):
+        self.movetimer = max(self.moveTimer - 1, 0)
 
 class LogManager():
     def __init__(self):
@@ -279,6 +247,8 @@ class Application(metaclass = Singleton):
         self.applicationManager = MenuManager()
         self.window = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
         self.screen = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
+        pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
+        pygame.display.set_caption('I found a strange potion')
     def onFrame(self):
         self.applicationManager.update()
         self.applicationManager.draw()
@@ -311,7 +281,7 @@ class Tile:
         self.sprite = sprite.convert()
         self.sprite_shadow = self.sprite.convert()
         self.discovered = False
-        libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, self.passable, self.transparent)
+        libtcodpy.map_set_properties(MapManager().lightMap, self.x, self.y, self.passable, self.transparent)
         dark = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()), flags=pygame.SRCALPHA)
         dark.fill((50, 50, 50, 0))
         self.sprite_shadow.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -326,8 +296,8 @@ class GameCamera():
     def update(self, x, y):
         self.x += (x-self.x-game_constants.CAMERA_WIDTH*16)*0.05
         self.y += (y-self.y-game_constants.CAMERA_HEIGHT*16)*0.05
-        self.x = int(game_util.clamp(self.x, 0, game_constants.MAP_WIDTH[GAME.level]*32 - game_constants.CAMERA_WIDTH*32))
-        self.y = int(game_util.clamp(self.y, 0, game_constants.MAP_HEIGHT[GAME.level]*32 - game_constants.CAMERA_HEIGHT*32))
+        self.x = int(game_util.clamp(self.x, 0, game_constants.MAP_WIDTH[GameStatus().level]*32 - game_constants.CAMERA_WIDTH*32))
+        self.y = int(game_util.clamp(self.y, 0, game_constants.MAP_HEIGHT[GameStatus().level]*32 - game_constants.CAMERA_HEIGHT*32))
 class VisualEffect:
     def __init__(self, x, y, visible, images):
         self.x = x
@@ -339,12 +309,12 @@ class VisualEffect:
         pass
     def draw(self):
         if game_util.isinscreen(self.x*32, self.y*32) and self.visible:
-            SCREEN.blit(self.image, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y + 8))
+            Application().window.blit(self.image, (self.x*32 - GameManager().gameCamera.x, self.y*32 - GameManager().gameCamera.y + 8))
     def destroy(self):
-        if self in GAME.visualactiveeffects:
-            GAME.visualactiveeffects.remove(self)
-        if self in GAME.visualeffects:
-            GAME.visualeffects.remove(self)
+        if self in VisualEffectsManager().getActiveEffects():
+            VisualEffectsManager().getActiveEffects().remove(self)
+        if self in VisualEffectsManager().getPassiveEffects():
+            VisualEffectsManager().getPassiveEffects().remove(self)
 class AnimationOnce(VisualEffect):
     def __init__(self, x, y, images, frame_wait):
         super().__init__(x, y, True, images)
@@ -401,22 +371,22 @@ class Window:
         self.visible = True
         self.active = True
         self.popup = None
-        GAME.rd_win = True
-        GAME.player.active = False
+        GameStatus().rd_win = True
+        GameStatus().player.active = False
     def draw(self):
         if not self.visible:
             return
         if self.redraw:
             self.update()
-        GAME.surface_windows.blit(self.surface, (self.x, self.y))
+        Application().window.blit(self.surface, (self.x, self.y))
     def update(self):
         self.surface.blit(self.sprite, (0, 0))
     def destroy(self):
-        if self in GAME.windows:
-            GAME.windows.remove(self)
+        if self is WindowManager().activeWindow:
+            WindowManager().activeWindow = None
         if self.parent == None:
-            GAME.player.active = True
-        GAME.rd_win = True
+            GameStatus().player.active = True
+        GameStatus().rd_win = True
     def input(self, key):
         if not self.active:
             return
@@ -427,7 +397,7 @@ class Window:
         else:
             self.popup.input(key)
             self.popup.redraw = True
-        GAME.rd_win = True
+        GameStatus().rd_win = True
     def popupInput(self, key):
         if self.popup == None:
             return
@@ -435,7 +405,7 @@ class Window:
         self.popup.destroy()
         self.popup = None
         self.active = True
-        GAME.rd_win = True
+        GameStatus().rd_win = True
     def basicControls(self, key):
         pass
     def getItems(self):
@@ -458,8 +428,8 @@ class WindowList(Window):
         super().update()
     # def updateDescription(self):
     #     if self.needDesc:
-    #         GAME.descriptionWindow.x = self.x - game_constants.DESCWINDOW_WIDTH
-    #         GAME.descriptionWindow.y = min(self.index*16+self.yoffset + 32, game_constants.CAMERA_HEIGHT*32 - game_constants.DESCWINDOW_HEIGHT)
+    #         GameStatus().descriptionWindow.x = self.x - game_constants.DESCWINDOW_WIDTH
+    #         GameStatus().descriptionWindow.y = min(self.index*16+self.yoffset + 32, game_constants.CAMERA_HEIGHT*32 - game_constants.DESCWINDOW_HEIGHT)
 class WindowPopupList(WindowList):
     def __init__(self, parent_window, window_name, x, y, sprite, options_list):
         super().__init__(x, y, sprite, False)
@@ -469,7 +439,7 @@ class WindowPopupList(WindowList):
     def input(self, key):
         self.basicControls(key)
         self.redraw = True
-        GAME.rd_win = True
+        GameStatus().rd_win = True
     def update(self):
         super().update()
         self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 8, self.surface.get_width() - 8, 16)) # Highlight selected item
@@ -487,10 +457,10 @@ class WindowPopupList(WindowList):
     def getItems(self):
         pass
     def destroy(self):
-        GAME.windows.remove(self)
+        WindowManager().activeWindow.remove(self)
 class SelectTarget:
     def __init__(self, parent_window, window_name, item, marker_sprite):
-        self.previousCamera = (GAME.camera.x, GAME.camera.y)
+        self.previousCamera = (GameManager().gameCamera.x, GameManager().gameCamera.y)
         self.max_range = item.maxRange
         self.valid_tiles = [(x, y) for x in range(-self.max_range, self.max_range + 1) for y in range(-self.max_range, self.max_range + 1) if item.targetCondition(x, y)]
         self.updatePosition()
@@ -504,10 +474,10 @@ class SelectTarget:
         self.redraw = True
         self.redraw_all = True
     def updatePosition(self):
-        if (GAME.camera.x, GAME.camera.y) != self.previousCamera:
-            self.previousCamera = (GAME.camera.x, GAME.camera.y)
-        self.x = (GAME.player.x - self.max_range)*32 - GAME.camera.x
-        self.y = (GAME.player.y - self.max_range)*32 - GAME.camera.y
+        if (GameManager().gameCamera.x, GameManager().gameCamera.y) != self.previousCamera:
+            self.previousCamera = (GameManager().gameCamera.x, GameManager().gameCamera.y)
+        self.x = (GameStatus().player.x - self.max_range)*32 - GameManager().gameCamera.x
+        self.y = (GameStatus().player.y - self.max_range)*32 - GameManager().gameCamera.y
     def draw(self):
         if self.redraw_all:
             self.redraw_all = False
@@ -516,9 +486,6 @@ class SelectTarget:
             self.updatePosition()
             self.update()
             self.surface.set_alpha(150)
-        GAME.rd_win = True
-        SCREEN.blit(self.surface, (self.x, self.y))
-        SCREEN.blit(self.marker_sprite, (self.marker_x*32, self.marker_y*32))
     def update(self):
         self.updatePosition()
         for x in range(-self.max_range, self.max_range + 1):
@@ -526,15 +493,15 @@ class SelectTarget:
                 if (x, y) in self.valid_tiles and game_util.simpledistance((x, y), (0, 0)) <= self.max_range:
                     self.surface.fill(game_constants.COLOR_GREEN, ((self.max_range + x)*32, (self.max_range + y)*32, 32, 32))
     def destroy(self):
-        if self in GAME.windows:
-            GAME.windows.remove(self)
+        if self in WindowManager().activeWindow:
+            WindowManager().activeWindow.remove(self)
         if self.parent == None:
-            GAME.player.active = True
-        GAME.rd_win = True
+            GameStatus().player.active = True
+        GameStatus().rd_win = True
     def input(self, key):
         self.basicControls(key)
         self.redraw_all = True
-        GAME.rd_win = True
+        GameStatus().rd_win = True
     def basicControls(self, key):
         pass
 
@@ -552,7 +519,7 @@ class Entity:
         self.counter_next = 0
     def draw(self):
         if self.visible:
-            GAME.update_rects.append(GAME.surface_entities.blit(self.sprite, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y)))
+            Application().window.blit(self.sprite, (self.x*32 - GameManager().gameCamera.x, self.y*32 - GameManager().gameCamera.y))
     def update(self):
         self.updateFrame()
 
@@ -563,7 +530,7 @@ class Entity:
             self.frame = (self.frame + 1) % len(self.sprite_list)
             self.sprite = self.sprite_list[self.frame]
     def destroy(self):
-        GAME.entities.remove(self)
+        MapManager().entities.remove(self)
     def event(self, event_name, args = ()):
         for e in sorted(self.behaviors, key = lambda x: x[1]):
             e[0](event_name, self, args)
@@ -581,7 +548,7 @@ class Creature(Entity):
     def draw(self):
         super().draw()
         if self.visible:
-            pygame.draw.rect(GAME.surface_entities, game_constants.COLOR_GREEN, ((self.x*32 - GAME.camera.x)+1, (self.y*32 - GAME.camera.y)+30, self.currentHitPoints/self.getMaxHitPoints()*(self.sprite.get_width()-1), 1))
+            pygame.draw.rect(Application().window, game_constants.COLOR_GREEN, ((self.x*32 - GameManager().gameCamera.x)+1, (self.y*32 - GameManager().gameCamera.y)+30, self.currentHitPoints/self.getMaxHitPoints()*(self.sprite.get_width()-1), 1))
 
     def getStatMod(self, stat_name):
         statmods = sorted(self.statmods, key = lambda x: x.priority)
@@ -624,19 +591,19 @@ class Player(Creature):
         if self.active:
             if key == 'up':
                 self.event('move', (0, -1))
-                game_util.map_light_update(GAME.light_map)
+                game_util.map_light_update(MapManager().lightMap)
             elif key == 'down':
                 self.event('move', (0, 1))
-                game_util.map_light_update(GAME.light_map)
+                game_util.map_light_update(MapManager().lightMap)
             elif key == 'left':
                 self.event('move', (-1, 0))
-                game_util.map_light_update(GAME.light_map)
+                game_util.map_light_update(MapManager().lightMap)
             elif key == 'right':
                 self.event('move', (1, 0))
-                game_util.map_light_update(GAME.light_map)
+                game_util.map_light_update(MapManager().lightMap)
     def canAttack(self, relativePosition):
         if self.equipment[0] is None: # No weapon equipped
-            return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x + relativePosition[0], self.y + relativePosition[1]) and 'monster' in creature.tags]
+            return [creature for creature in MapManager().creatures if creature is not self and (creature.x, creature.y) == (self.x + relativePosition[0], self.y + relativePosition[1]) and 'monster' in creature.tags]
         return self.equipment[0].attackTargets(relativePosition) # Weapon range
     def tilesAttack(self, relativePosition):
         if self.equipment[0] is None: # No weapon equipped
@@ -685,14 +652,14 @@ class Equipment(Item):
         self.requirements = [requirement(self) for requirement in requirements]
     def equip(self):
         for stat, value in self.stats:
-            GAME.player.stats[stat] += value
+            GameStatus().player.stats[stat] += value
         for mod in self.mods:
-            GAME.player.statmods.append(mod)
+            GameStatus().player.statmods.append(mod)
     def unequip(self):
         for stat, value in self.stats:
-            GAME.player.stats[stat] -= value
+            GameStatus().player.stats[stat] -= value
         for mod in self.mods:
-            GAME.player.statmods.remove(mod)
+            GameStatus().player.statmods.remove(mod)
     def canEquip(self):
         return all(requirement() for requirement in self.requirements)
 class Weapon(Equipment):
@@ -717,7 +684,7 @@ class Consumable(Item):
         for action in self.onUse:
             action.execute()
         if self.used:
-            GAME.player.inventory.remove(self)
+            GameStatus().player.inventory.remove(self)
     def condition(self):
         for condition in self.useCondition:
             if not condition.execute():
@@ -744,27 +711,27 @@ class ConsumableMap(Consumable):
         for action in self.onUse:
             action.execute(x, y)
         if self.used:
-            GAME.player.inventory.remove(self)
+            GameStatus().player.inventory.remove(self)
 
 class ShortSword(Weapon):
     def attackTargets(self, relativePosition):
-        return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition and 'monster' in creature.tags]
+        return [creature for creature in MapManager().creatures if creature is not self and (creature.x, creature.y) == (GameStatus().player.x, GameStatus().player.y) + relativePosition and 'monster' in creature.tags]
     def attackTiles(self, relativePosition):
-        return [(GAME.player.x + relativePosition[0], GAME.player.y + relativePosition[1])]
+        return [(GameStatus().player.x + relativePosition[0], GameStatus().player.y + relativePosition[1])]
 class LongSword(Weapon):
     def attackTargets(self, relativePosition): # TODO: Fix this behavior
         if relativePosition[0] == 0:
-            return [creature for creature in GAME.creatures if creature is not self and creature.x in [GAME.player.x + 1, GAME.player.x, GAME.player.x - 1] and creature.y == GAME.player.y + relativePosition[1] and 'monster' in creature.tags]
+            return [creature for creature in MapManager().creatures if creature is not self and creature.x in [GameStatus().player.x + 1, GameStatus().player.x, GameStatus().player.x - 1] and creature.y == GameStatus().player.y + relativePosition[1] and 'monster' in creature.tags]
         elif relativePosition[1] == 0:
-            return [creature for creature in GAME.creatures if creature is not self and creature.x == GAME.player.x + relativePosition[0] and creature.y in [GAME.player.y + 1, GAME.player.y, GAME.player.y - 1] and 'monster' in creature.tags]
+            return [creature for creature in MapManager().creatures if creature is not self and creature.x == GameStatus().player.x + relativePosition[0] and creature.y in [GameStatus().player.y + 1, GameStatus().player.y, GameStatus().player.y - 1] and 'monster' in creature.tags]
     def attackTiles(self, relativePosition):
         if relativePosition[0] == 0:
-            return [(GAME.player.x - 1, GAME.player.y + relativePosition[1]), (GAME.player.x, GAME.player.y + relativePosition[1]), (GAME.player.x + 1, GAME.player.y + relativePosition[1])]
+            return [(GameStatus().player.x - 1, GameStatus().player.y + relativePosition[1]), (GameStatus().player.x, GameStatus().player.y + relativePosition[1]), (GameStatus().player.x + 1, GameStatus().player.y + relativePosition[1])]
         elif relativePosition[1] == 0:
-            return [(GAME.player.x + relativePosition[0], GAME.player.y - 1), (GAME.player.x + relativePosition[0], GAME.player.y), (GAME.player.x + relativePosition[0], GAME.player.y + 1)]
+            return [(GameStatus().player.x + relativePosition[0], GameStatus().player.y - 1), (GameStatus().player.x + relativePosition[0], GameStatus().player.y), (GameStatus().player.x + relativePosition[0], GameStatus().player.y + 1)]
 class Spear(Weapon):
     def attackTargets(self, relativePosition): # TODO: Check if this is working as intended
-        return [creature for creature in GAME.creatures if creature is not self and ((creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition or (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition*2) and 'monster' in creature.tags]
+        return [creature for creature in MapManager().creatures if creature is not self and ((creature.x, creature.y) == (GameStatus().player.x, GameStatus().player.y) + relativePosition or (creature.x, creature.y) == (GameStatus().player.x, GameStatus().player.y) + relativePosition*2) and 'monster' in creature.tags]
 
 class Potion:
     def __init__(self, name, sprite_list, actions, conditions, startCharges, maxCharges, description):

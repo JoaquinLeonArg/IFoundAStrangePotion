@@ -7,98 +7,20 @@ import game_util
 import game_constants
 import game_content
 import game_mapping
-from game_classes import ApplicationData
-from game_classes import GameData
-from game_classes import MainMenu
+from game_classes import Application
+from game_classes import GameManager
 import sys
 
 # GAME
 def game_init():
     pygame.init()
-    GameObject = Game()
-    GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
-    CLOCK = pygame.time.Clock()
-    SCREEN = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
-    STATE = 0
-
-    pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
-    pygame.display.set_caption('I found a strange potion')
+    Application()
 
 def game_loop():
     while True:
-        if STATE == 0:
-            draw_menu()
-            menu_input()
-        elif STATE == 9:
-            GAME.action = 'none'
-            if GAME.movetimer > 0:
-                GAME.movetimer -= 1
-            game_input()
-            for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
-                entity.update_frame()
-            if GAME.action != 'none':
-                GAME.updateOrder()
-                GAME.creaturesExecuteTurn()
-                GAME.entitiesExecuteTurn()
-                GAME.turn_counter += 1
-            GAME.camera.update(GAME.player.x*32, GAME.player.y*32)
-            draw_game()
-        CLOCK.tick(60)
-def game_input():
-    events = pygame.event.get()
-    keystates = pygame.key.get_pressed()
+        Application().onFrame()
+        Application().draw()
 
-    if not GAME.visualactiveeffects and GAME.movetimer is 0 and GAME.player.active:
-        if keystates[pygame.K_UP]:
-            GAME.player.input('up')
-        if keystates[pygame.K_DOWN]:
-            GAME.player.input('down')
-        if keystates[pygame.K_LEFT]:
-            GAME.player.input('left')
-        if keystates[pygame.K_RIGHT]:
-            GAME.player.input('right')
-
-    for event in events:
-        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
-            pygame.quit()
-            sys.exit()
-
-        if event.type == pygame.KEYDOWN and not GAME.visualactiveeffects:
-
-                if event.key == game_constants.KEY_INVENTORY and not GAME.windows:
-                    GAME.windows.append(game_content.Window_PlayerInventory())
-                if event.key == game_constants.KEY_SEARCH and not GAME.windows:
-                    if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
-                        GAME.windows.append(game_content.Window_SearchInventory())
-                    else:
-                        GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
-                if event.key == game_constants.KEY_STATUS and not GAME.windows:
-                    GAME.windows.append(game_content.Window_Status())
-                if event.key == game_constants.KEY_STATS and not GAME.windows:
-                    GAME.windows.append(game_content.Window_Stats())
-                if event.key == game_constants.KEY_EQUIPMENT and not GAME.windows:
-                    GAME.windows.append(game_content.Window_Equipment())
-                if event.key == game_constants.KEY_SKILLTREE and not GAME.windows:
-                    GAME.windows.append(game_content.Window_SkillTree())
-
-                for window in [w for w in GAME.windows if w.active]:
-                    if event.key == pygame.K_LEFT:
-                        window.input('left')
-                    if event.key == pygame.K_RIGHT:
-                        window.input('right')
-                    if event.key == pygame.K_UP:
-                        window.input('up')
-                    if event.key == pygame.K_DOWN:
-                        window.input('down')
-                    if event.key == pygame.K_USE:
-                        window.input('use')
-                    if event.key == pygame.K_CANCEL:
-                        window.input('cancel')
-
-                if event.key == game_constants.KEY_LOG:
-                    GAME.long_log = not GAME.long_log
-                if event.key == game_constants.KEY_MINIMAP:
-                    GAME.show_minimap = (GAME.show_minimap + 1) % 3
 def menu_input():
     global STATE
     global MENU
