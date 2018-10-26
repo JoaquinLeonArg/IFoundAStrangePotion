@@ -1,0 +1,7 @@
+name;rarity;size;description;slot;stats;mods;requirements;tags;sprite
+Cowboy hat;Common;1;Once owned by a space cowboy.;1;PhyAttackFlat: 10, MagAttackFlat: 20, HitPointsFlat: 150;nullifyStat(100> 'MagAttackMult');;;sword2
+Heart locket;Common;1;It's warm.;6;HitPointsFlat: 100;;;;heart
+Golden necklace;Mythic;1;Feels lucky.;6;PhyCritDamage: 50;;;;
+Golden ring;Mythic;1;Feels lucky.;5;PhyCritChance: 20;;;;
+Silver ring;Rare;1;You feel smarter just by looking at it.;5;MagCritChance: 30;;;;
+Ring of vitality;Rare;2;Doesn't look too fancy.;5;HitpointsRegenFlat: 1;;;;
