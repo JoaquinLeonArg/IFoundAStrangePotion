@@ -22,7 +22,6 @@ TILES = {
 }
 
 ENEMIES = [
-    game_content.m_slime
 ]
 
 def path_cost(_1, _2, x, y, array):
@@ -76,7 +75,8 @@ def mapgen_dungeon(width, height):
                             entities.append(game_content.n_door(x + i, y + j))
                             doors.append((x + i, y + j))
                         if entity == 3 or entity == 4:
-                            creatures.append(random.choice(ENEMIES)(x + i, y + j))
+                            # creatures.append(random.choice(ENEMIES)(x + i, y + j))
+                            pass
                         if entity == 5 or entity == 6 or entity == 7:
                             items.append(game_content.weapon('Holy sword', x = x + i, y = y + j))
 

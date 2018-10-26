@@ -37,7 +37,6 @@ class AbstractApplicationManager(metaclass = Singleton):
     def lateUpdate(self):
         pass
 
-
 class GameManager(AbstractApplicationManager):
     def __init__(self):
         self.gameStatus = GameStatus()
@@ -144,7 +143,7 @@ class GameStatus(metaclass = Singleton):
         self.logManager.draw()
         self.uiManager.draw()
 
-class MapManager():
+class MapManager(metaclass = Singleton):
     def __init__(self):
         self.tiles = []
         self.creatures = []
@@ -243,21 +242,25 @@ class MenuManager(AbstractApplicationManager):
 
 class Application(metaclass = Singleton):
     def __init__(self):
+        self.debug_mode = True
         self.windowResolution = (1280, 720) # TODO: IMPLEMENT A WAY TO CHANGE IT
-        self.applicationManager = MenuManager()
+        self.applicationManager = GameManager()
         self.window = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
         self.screen = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
         pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
         pygame.display.set_caption('I found a strange potion')
+        self.debug('Application initialized.')
+    def debug(self, msg):
+        if self.debug_mode:
+            print(msg)
     def onFrame(self):
         self.applicationManager.update()
         self.applicationManager.draw()
         self.applicationManager.lateUpdate()
     def draw(self):
         self.window.fill(game_constants.COLOR_BLACK)
-        self.window.blit(self.applicationManager.draw(), (0, 0))
+        self.applicationManager.draw()
         pygame.transform.scale(self.window, self.windowResolution, self.screen)
-
 
 class UIElement:
     def __init__(self, x, y):
@@ -270,7 +273,6 @@ class UIElement:
         self.target_x, self.target_y = to_x, to_y
     def draw(self):
         pass
-
 
 class Tile:
     def __init__(self, x, y, passable, transparent, sprite):
@@ -289,6 +291,7 @@ class Tile:
         pass
     def onWalk(self):
         pass
+
 class GameCamera():
     def __init__(self):
         self.x = 0
@@ -298,6 +301,7 @@ class GameCamera():
         self.y += (y-self.y-game_constants.CAMERA_HEIGHT*16)*0.05
         self.x = int(game_util.clamp(self.x, 0, game_constants.MAP_WIDTH[GameStatus().level]*32 - game_constants.CAMERA_WIDTH*32))
         self.y = int(game_util.clamp(self.y, 0, game_constants.MAP_HEIGHT[GameStatus().level]*32 - game_constants.CAMERA_HEIGHT*32))
+
 class VisualEffect:
     def __init__(self, x, y, visible, images):
         self.x = x
@@ -315,6 +319,7 @@ class VisualEffect:
             VisualEffectsManager().getActiveEffects().remove(self)
         if self in VisualEffectsManager().getPassiveEffects():
             VisualEffectsManager().getPassiveEffects().remove(self)
+
 class AnimationOnce(VisualEffect):
     def __init__(self, x, y, images, frame_wait):
         super().__init__(x, y, True, images)
@@ -330,6 +335,7 @@ class AnimationOnce(VisualEffect):
                 return
             self.counter_next = 0
             self.image = self.images[self.frame]
+
 class LoopVisualEffect(VisualEffect):
     def __init__(self, x, y, visible, images, frame_wait):
         super().__init__(x, y, visible, images)
@@ -342,6 +348,7 @@ class LoopVisualEffect(VisualEffect):
             self.counter_next = 0
             self.frame = (self.frame + 1) % len(self.images)
             self.image = self.images[self.frame]
+
 class CreatureMoveVisualEffect(LoopVisualEffect):
     def __init__(self, creature, from_pos, to_pos, duration):
         super().__init__(creature.x, creature.y, True, creature.sprite_list[creature.frame:] + creature.sprite_list[:creature.frame], game_constants.ANIMATION_WAIT * 8)
@@ -410,6 +417,7 @@ class Window:
         pass
     def getItems(self):
         pass
+
 class WindowList(Window):
     def __init__(self, x, y, sprite, descriptable):
         super().__init__(x, y, sprite)
@@ -430,6 +438,7 @@ class WindowList(Window):
     #     if self.needDesc:
     #         GameStatus().descriptionWindow.x = self.x - game_constants.DESCWINDOW_WIDTH
     #         GameStatus().descriptionWindow.y = min(self.index*16+self.yoffset + 32, game_constants.CAMERA_HEIGHT*32 - game_constants.DESCWINDOW_HEIGHT)
+
 class WindowPopupList(WindowList):
     def __init__(self, parent_window, window_name, x, y, sprite, options_list):
         super().__init__(x, y, sprite, False)
@@ -458,6 +467,7 @@ class WindowPopupList(WindowList):
         pass
     def destroy(self):
         WindowManager().activeWindow.remove(self)
+
 class SelectTarget:
     def __init__(self, parent_window, window_name, item, marker_sprite):
         self.previousCamera = (GameManager().gameCamera.x, GameManager().gameCamera.y)
@@ -534,6 +544,7 @@ class Entity:
     def event(self, event_name, args = ()):
         for e in sorted(self.behaviors, key = lambda x: x[1]):
             e[0](event_name, self, args)
+
 class Creature(Entity):
     def __init__(self, x, y, tags, sprite_list, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors)
@@ -568,6 +579,7 @@ class Creature(Entity):
         return max(int((self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult']/100) + self.getStatMod('PhyArmorFlat'), 1)
     def getMagArmor(self):
         return max(int((self.stats['MagArmorFlat'])*self.stats['MagArmorMult']/100) + self.getStatMod('MagArmorFlat'), 1)
+
 class Player(Creature):
     def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, inventory, modifiers, status, skilltree, behaviors, statmods = []):
         super().__init__(x, y, ['player'], sprite_list, behaviors, stats, statmods)
@@ -617,12 +629,14 @@ class Player(Creature):
         return max(1, 4 + self.stats['HungerFlat'])
     def getCurrentCarry(self):
         return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item is not None])
+
 class Monster(Creature):
     def __init__(self, x, y, tags, sprite_list, name, drops, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors, stats, statmods)
         self.name = name
         self.drops = drops
         self.tags = ['monster'] + tags
+
 class Item(Entity):
     def __init__(self, x, y, tags, sprite_list, name, rarity, size, description):
         super().__init__(x, y, tags, sprite_list)
@@ -642,6 +656,7 @@ class Item(Entity):
         else:
             self.color = game_constants.COLOR_GRAY
         self.description = description
+
 class Equipment(Item):
     def __init__(self, x, y, name, rarity, size, description, slot, stats, mods, requirements, tags, sprite_list):
         super().__init__(x, y, tags, sprite_list, name, rarity, size, description)
@@ -662,6 +677,7 @@ class Equipment(Item):
             GameStatus().player.statmods.remove(mod)
     def canEquip(self):
         return all(requirement() for requirement in self.requirements)
+
 class Weapon(Equipment):
     def __init__(self, x, y, name, rarity, size, description, stats, mods, requirements, tags, sprite_list, spriteattack_list):
         super().__init__(x, y, name, rarity, size, description, 0, stats, mods, requirements, tags, sprite_list)
@@ -670,6 +686,7 @@ class Weapon(Equipment):
         pass
     def attackTiles(self, relativePosition):
         pass
+
 class Consumable(Item):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, useCondition = [], charges = 1):
         super().__init__(x, y, tags, sprite_list, name, color, size, description)
@@ -692,6 +709,7 @@ class Consumable(Item):
         return True
     def gotUsed(self):
         return self.used
+
 class ConsumableMap(Consumable):
     def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, initialTarget, maxRange, useCondition = [], charges = [], targetCondition = []):
         super().__init__(x, y,tags, sprite_list, name, color, size, description, effects, useCondition, charges)
@@ -718,6 +736,7 @@ class ShortSword(Weapon):
         return [creature for creature in MapManager().creatures if creature is not self and (creature.x, creature.y) == (GameStatus().player.x, GameStatus().player.y) + relativePosition and 'monster' in creature.tags]
     def attackTiles(self, relativePosition):
         return [(GameStatus().player.x + relativePosition[0], GameStatus().player.y + relativePosition[1])]
+
 class LongSword(Weapon):
     def attackTargets(self, relativePosition): # TODO: Fix this behavior
         if relativePosition[0] == 0:
@@ -729,6 +748,7 @@ class LongSword(Weapon):
             return [(GameStatus().player.x - 1, GameStatus().player.y + relativePosition[1]), (GameStatus().player.x, GameStatus().player.y + relativePosition[1]), (GameStatus().player.x + 1, GameStatus().player.y + relativePosition[1])]
         elif relativePosition[1] == 0:
             return [(GameStatus().player.x + relativePosition[0], GameStatus().player.y - 1), (GameStatus().player.x + relativePosition[0], GameStatus().player.y), (GameStatus().player.x + relativePosition[0], GameStatus().player.y + 1)]
+
 class Spear(Weapon):
     def attackTargets(self, relativePosition): # TODO: Check if this is working as intended
         return [creature for creature in MapManager().creatures if creature is not self and ((creature.x, creature.y) == (GameStatus().player.x, GameStatus().player.y) + relativePosition or (creature.x, creature.y) == (GameStatus().player.x, GameStatus().player.y) + relativePosition*2) and 'monster' in creature.tags]
@@ -747,6 +767,7 @@ class Potion:
             for action in self.actions:
                 action.execute()
             self.charges -= 1
+
 class Spell:
     def __init__(self, name, description, sprite_list, effects, costs, cd):
         self.name = name
