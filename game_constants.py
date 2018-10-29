@@ -49,20 +49,18 @@ SPRITE_PLAYER = pygame.image.load('resources/player2.png')
 SPRITE_ENEMY_SLIME = pygame.image.load('resources/enemy_slime.png')
 SPRITE_TITLE = pygame.image.load('resources/title.png')
 SPRITE_DESCRIPTIONWINDOW = pygame.image.load('resources/graphics/window_description.png')
-SPRITE_ITEMSWINDOW = pygame.image.load('resources/itemswindow.png')
+SPRITE_ITEMSWINDOW = pygame.image.load('resources/graphics/ui/ui_equipment.png')
 SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
 SPRITE_STATUS = pygame.image.load('resources/graphics/ui/ui_status.png')
 SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
 SPRITE_TRADEWINDOW = pygame.image.load('resources/graphics/window_trade.png')
 SPRITE_LOG = pygame.image.load('resources/graphics/ui/ui_log.png')
 SPRITE_POPUP = pygame.image.load('resources/graphics/ui/ui_popup.png')
-SPRITE_POINTER = pygame.image.load('resources/graphics/ui/pointer.png')
 
 SPRITE_MARKER = pygame.image.load('resources/graphics/marker.png')
 
 SPRITE_BACK_68X68 = pygame.image.load('resources/graphics/back_68x68.png')
-
-SPRITE_NULL = pygame.Surface((0, 0))
+SPRITE_NULL = pygame.Surface((0,0))
 
 MAP_WIDTH = [50, 60, 60, 50]
 MAP_HEIGHT = [50, 60, 70, 60]
@@ -98,6 +96,7 @@ KEY_STATS = pygame.K_z
 KEY_STATUS = pygame.K_t
 KEY_SKILLTREE = pygame.K_k
 KEY_MINIMAP = pygame.K_m
+KEY_PASSTURN = pygame.K_w
 
 KEY_USE = pygame.K_s
 KEY_CANCEL = pygame.K_c

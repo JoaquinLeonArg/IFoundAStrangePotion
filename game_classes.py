@@ -150,12 +150,13 @@ class Game:
     def addLogMessage(self, message, color):
         self.log.insert(0, (message, color))
         self.rd_log = True
-    def creaturesExecuteTurn(self):
-        for creature in self.creatures:
-            creature.event('turn', [creature])
     def entitiesExecuteTurn(self):
-        for entity in self.entities:
+        for entity in self.entities + self.creatures + self.items:
             entity.event('turn', [entity])
+            if libtcodpy.map_is_in_fov(self.light_map, entity.x, entity.y):
+                entity.last_seen_pos = (entity.x, entity.y)
+                entity.last_seen_image = entity.frame
+                entity.last_visible = entity.visible
     def placeFree(self, x, y):
         for obj in self.creatures:
             if obj.x == x and obj.y == y:
@@ -196,11 +197,13 @@ class Spritesheet(object):
                 for x in range(image_count)]
         return self.images_at(tups, colorkey)
 class Tile:
-    def __init__(self, x, y, passable, transparent, sprite):
+    def __init__(self, x, y, passable, transparent, sprite, destroy_func = None, walk_func = None):
         self.x = x
         self.y = y
         self.passable = passable
         self.transparent = transparent
+        self.destroy_func = destroy_func
+        self.walk_func = walk_func
         self.sprite = sprite.convert()
         self.sprite_shadow = self.sprite.convert()
         self.discovered = False
@@ -209,7 +212,8 @@ class Tile:
         dark.fill((50, 50, 50, 0))
         self.sprite_shadow.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     def onDestroy(self):
-        pass
+        if self.destroy_func:
+            self.destroy_func(self)
     def onWalk(self):
         pass
 class Camera:
@@ -274,6 +278,9 @@ class CreatureMoveVisualEffect(LoopVisualEffect):
         self.current = 0
         self.creature.visible = False
     def update(self):
+        if self.duration == 0:
+            self.destroy()
+            return
         self.current += 1
         self.x += self.dx / self.duration
         self.y += self.dy / self.duration
@@ -443,9 +450,22 @@ class Entity:
         self.sprite = self.sprite_list[0]
         self.frame = 0
         self.counter_next = 0
+        self.sprites_shadow = [sprite.convert() for sprite in self.sprite_list]
+        dark = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()), flags=pygame.SRCALPHA)
+        dark.fill((50, 50, 50, 0))
+        for sprite in self.sprites_shadow:
+            sprite.set_colorkey(game_constants.COLOR_COLORKEY)
+            sprite.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            sprite.set_colorkey((49, 0 ,49))
+        self.last_seen_pos = None
+        self.last_seen_visible = True
+        self.last_seen_image = self.frame
     def draw(self):
         if self.visible:
-            GAME.update_rects.append(GAME.surface_entities.blit(self.sprite, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y)))
+            GAME.surface_entities.blit(self.sprite, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y))
+    def draw_last_seen(self):
+        if self.last_seen_visible and self.last_seen_pos:
+            GAME.surface_entities.blit(self.sprites_shadow[self.last_seen_image], (self.last_seen_pos[0] * 32 - GAME.camera.x, self.last_seen_pos[1] * 32 - GAME.camera.y))
     def update_frame(self):
         self.counter_next += 1
         if self.counter_next == game_constants.ANIMATION_WAIT * 8:
@@ -456,7 +476,7 @@ class Entity:
         GAME.entities.remove(self)
     def event(self, event_name, args = ()):
         for e in sorted(self.behaviors, key = lambda x: x[1]):
-            e[0](event_name, self, args)
+            e[0].execute(event_name, self, args)
 class Creature(Entity):
     def __init__(self, x, y, tags, sprite_list, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors)
@@ -566,18 +586,21 @@ class Item(Entity):
             self.color = game_constants.COLOR_GRAY
         self.description = description
 class Equipment(Item):
-    def __init__(self, x, y, name, rarity, size, description, slot, stats, mods, requirements, tags, sprite_list):
+    def __init__(self, x, y, name, rarity, size, description, slot, stats, statmods, mods, requirements, tags, sprite_list):
         super().__init__(x, y, tags, sprite_list, name, rarity, size, description)
         self.slot = slot
         self.itemType = 'equipment'
         self.stats = stats
+        self.statmods = statmods
         self.mods = mods
         self.requirements = [requirement(self) for requirement in requirements]
     def equip(self):
         for stat, value in self.stats:
             GAME.player.stats[stat] += value
         for mod in self.mods:
-            GAME.player.statmods.append(mod)
+            GAME.player.behaviors.append(mod)
+        for statmod in self.statmods:
+            GAME.player.statmods.append(statmod)
     def unequip(self):
         for stat, value in self.stats:
             GAME.player.stats[stat] -= value
@@ -586,8 +609,8 @@ class Equipment(Item):
     def canEquip(self):
         return all(requirement() for requirement in self.requirements)
 class Weapon(Equipment):
-    def __init__(self, x, y, name, rarity, size, description, stats, mods, requirements, tags, sprite_list, spriteattack_list):
-        super().__init__(x, y, name, rarity, size, description, 0, stats, mods, requirements, tags, sprite_list)
+    def __init__(self, x, y, name, rarity, size, description, stats, statmods, mods, requirements, tags, sprite_list, spriteattack_list):
+        super().__init__(x, y, name, rarity, size, description, 0, stats, statmods, mods, requirements, tags, sprite_list)
         self.spriteattack_list = spriteattack_list
     def attackTargets(self, relativePosition):
         pass

@@ -2,6 +2,7 @@ import game_classes
 import game_constants
 import game_parsers
 import game_mapping
+import game_effects
 import random
 import math
 import game_util
@@ -131,31 +132,35 @@ class Window_SearchInventory(game_classes.WindowList):
         self.items = [(item.sprite_list, item.name, item.color, item.itemType, item.description) for item in GAME.items if item.x == GAME.player.x and item.y == GAME.player.y]
 class Window_Equipment(game_classes.WindowList):
     def __init__(self):
-        super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
-        self.equipmentNames = ['- Main hand -', '- Head      -', '- Chest     -', '- Legs      -', '- Feet      -', '- Hand      -', '- Neck      -']
+        super().__init__(565, 150, game_constants.SPRITE_ITEMSWINDOW, True)
+        self.item_positions = [(9, 98), (59, 24), (59, 71), (59, 121), (59, 171), (59, 221), (109, 98)]
     def input(self, key):
-        super().input(key)
-        if key == 'use':
-            available_items = [('None', game_constants.COLOR_GRAY, -1)] + [(item.name, item.color, GAME.player.inventory.index(item)) for item in GAME.player.inventory if item.itemType == 'equipment' and item.slot == self.index and item.canEquip()]
-            self.active = False
-            self.popup = game_classes.WindowPopupList(self, 'equipable', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, available_items)
-            GAME.windows.append(self.popup)
-            # UPDATE GAME CONTROLS TEXT
+        if key == 'up' and self.index in [2, 3, 4, 5]:
+            self.index -= 1
+        if key == 'down' and self.index in [1, 2, 3, 4]:
+            self.index += 1
+        if key == 'left':
+            if self.index in [1, 2, 3, 4, 5]:
+                self.index = 0
+            elif self.index == 6:
+                self.index = 2
+        if key == 'right':
+            if self.index in [1, 2, 3, 4, 5]:
+                self.index = 6
+            elif self.index == 0:
+                self.index = 2
         if key == 'cancel':
+            GAME.windows.remove(self)
             GAME.player.active = True
-            # GAME.controlsText = game_constants.TEXT_ONMAP
     def update(self):
         super().update()
-        game_util.draw_text_bg(self.surface, 'Equipment', game_constants.POPUP_OFFSET_X + 4, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW) # Draw title
-        self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
-        for itemIndex in range(len(self.items)): # Draw item names
-            if self.items[itemIndex] == None:
-                game_util.draw_text_bg(self.surface, self.equipmentNames[itemIndex], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, game_constants.COLOR_DARKGRAY, game_constants.COLOR_SHADOW)
-            else:
-                game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
+        pygame.draw.rect(self.surface, game_constants.COLOR_GREEN, (self.item_positions[self.index][0]-2, self.item_positions[self.index][1]-2, 34, 34), 2)
+        for index, item in enumerate(self.items):
+            if item:
+                self.surface.blit(item.sprite, self.item_positions[index])
     def getItems(self):
-        self.items = [(item.sprite_list, item.name, item.color, item.slot, item.description) if item != None else None for item in GAME.player.equipment]
-    def popupInput(self, key):
+        self.items = [item for item in GAME.player.equipment]
+    '''def popupInput(self, key):
         super().popupInput(key)
         if key == 'use':
             if self.popup.index == 0:
@@ -181,7 +186,7 @@ class Window_Equipment(game_classes.WindowList):
             GAME.action = 'item'
             #GAME.controlsText = game_constants.TEXT_ONINVENTORY
         if key == 'cancel':
-            self.destroyPopup()
+            self.destroyPopup()'''
 class Window_Status(game_classes.WindowList):
     def __init__(self):
         for status in GAME.player.status:
@@ -357,78 +362,80 @@ class Window_EquipSpell(game_classes.Window):
         GAME.rd_win = True
 
 # BEHAVIORS
-def b_playerbase(event, parent, args = ()):
-    if event == 'move':
-        GAME.movetimer = 8
-        dx, dy = (args[0], args[1])
-        targets = parent.canAttack((dx, dy))
-        tiles = parent.tilesAttack((dx, dy))
-        if targets:
-            parent.event('attack', args = (targets, tiles))
-            GAME.action = 'attack'
-            return
-        for entity in GAME.entities: # Movement to a tile with an open-able entity.
-            if entity.x == parent.x + dx and entity.y == parent.y + dy:
-                if 'openable' in entity.tags:
-                    if not entity.isOpen:
-                        entity.open()
-                        return
-                elif 'exit' in entity.tags:
-                    GAME.level += 1
-                    GAME.generateMap(game_mapping.mapgen_dungeon(100, 100))
-        if GAME.placeFree(parent.x + dx, parent.y + dy): # Movement to a free tile.
-            if GAME.map[parent.x + dx][parent.y + dy].passable:
-                GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
-                parent.x += dx
-                parent.y += dy
-                GAME.action = 'move'
-        parent.currentHunger = max(0, parent.currentHunger - int(parent.stats['HungerFlat']*parent.stats['HungerMult']/100))
-        if parent.currentHunger == 0:
-            parent.damage(1, 'starvation', None)
-    elif event == 'attack':
-        for enemy in args[0]:
-            linearDamage(parent, enemy, parent.getPhyAttack(), 'physical', None)
-        for tile in args[1]:
-            if parent.equipment[0] is not None:
-                GAME.visualeffects.append(game_classes.AnimationOnce(*tile, parent.equipment[0].spriteattack_list, game_constants.ANIMATION_WAIT*2))
-    if event == 'takedamage':
-        origin, amount, type, subtype = args[1], args[2], args[3], args[4]
-        if  parent.currentHitPoints - amount <= 0:
-            parent.event('die', parent)
-            return
-        else:
-            parent.currentHitPoints -= amount
-    elif event == 'die':
-        pygame.quit()
-        sys.exit()
-def b_monsterbase(event, parent, args = ()):
-    if event == 'turn':
-        if game_util.distance(parent, GAME.player) <= 1:
-            parent.event('attack', [parent])
-        elif game_util.distance(parent, GAME.player) <= 3:
-            relative_pos = (parent.x - GAME.player.x, parent.y - GAME.player.y)
-            if abs(relative_pos[0]) >= abs(relative_pos[1]) and relative_pos[0] != 0:
-                parent.event('move', (parent, (-game_util.sign(relative_pos[0]), 0)))
-            elif abs(relative_pos[0]) <= abs(relative_pos[1]) and relative_pos[1] != 0:
-                parent.event('move', (parent, (0, -game_util.sign(relative_pos[1]))))
-    if event == 'move':
-        dx, dy = args[1][0], args[1][1]
-        if GAME.placeFree(parent.x + dx, parent.y + dy): # Movement to a free tile.
-            if GAME.map[parent.x + dx][parent.y + dy].passable:
-                GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
-                parent.x += dx
-                parent.y += dy
-    if event == 'attack':
-        linearDamage(parent, GAME.player, parent.getPhyAttack(), 'physical', None)
-    if event == 'takedamage':
-        origin, amount, type, subtype = args[1], args[2], args[3], args[4]
-        if parent.currentHitPoints - amount <= 0:
-            parent.event('die', [parent])
-            return
-        else:
-            parent.currentHitPoints -= amount
-    if event == 'die':
-        GAME.creatures.remove(parent)
+class behaviorPlayerBase():
+    def execute(self, event, parent, args = ()):
+        if event == 'move':
+            GAME.movetimer = 8
+            dx, dy = (args[0], args[1])
+            targets = parent.canAttack((dx, dy))
+            tiles = parent.tilesAttack((dx, dy))
+            if targets:
+                parent.event('attack', args = (targets, tiles))
+                GAME.action = 'attack'
+                return
+            for entity in GAME.entities: # Movement to a tile with an open-able entity.
+                if entity.x == parent.x + dx and entity.y == parent.y + dy:
+                    if 'openable' in entity.tags:
+                        if not entity.isOpen:
+                            entity.open()
+                            return
+                    elif 'exit' in entity.tags:
+                        GAME.level += 1
+                        GAME.generateMap(game_mapping.mapgen_dungeon(100, 100))
+            if GAME.placeFree(parent.x + dx, parent.y + dy): # Movement to a free tile.
+                if GAME.map[parent.x + dx][parent.y + dy].passable:
+                    GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
+                    parent.x += dx
+                    parent.y += dy
+                    GAME.action = 'move'
+            parent.currentHunger = max(0, parent.currentHunger - int(parent.stats['HungerFlat']*parent.stats['HungerMult']/100))
+            if parent.currentHunger == 0:
+                parent.damage(1, 'starvation', None)
+        elif event == 'attack':
+            for enemy in args[0]:
+                linearDamage(parent, enemy, parent.getPhyAttack(), 'physical', None)
+            for tile in args[1]:
+                if parent.equipment[0] is not None:
+                    GAME.visualeffects.append(game_classes.AnimationOnce(*tile, parent.equipment[0].spriteattack_list, game_constants.ANIMATION_WAIT*2))
+        if event == 'takedamage':
+            origin, amount, type, subtype = args[1], args[2], args[3], args[4]
+            if  parent.currentHitPoints - amount <= 0:
+                parent.event('die', parent)
+                return
+            else:
+                parent.currentHitPoints -= amount
+        elif event == 'die':
+            pygame.quit()
+            sys.exit()
+class behaviorMonsterBase():
+    def execute(self, event, parent, args = ()):
+        if event == 'turn':
+            if game_util.distance(parent, GAME.player) <= 1:
+                parent.event('attack', [parent])
+            elif game_util.distance(parent, GAME.player) <= 3:
+                relative_pos = (parent.x - GAME.player.x, parent.y - GAME.player.y)
+                if abs(relative_pos[0]) >= abs(relative_pos[1]) and relative_pos[0] != 0:
+                    parent.event('move', (parent, (-game_util.sign(relative_pos[0]), 0)))
+                elif abs(relative_pos[0]) <= abs(relative_pos[1]) and relative_pos[1] != 0:
+                    parent.event('move', (parent, (0, -game_util.sign(relative_pos[1]))))
+        if event == 'move':
+            dx, dy = args[1][0], args[1][1]
+            if GAME.placeFree(parent.x + dx, parent.y + dy): # Movement to a free tile.
+                if GAME.map[parent.x + dx][parent.y + dy].passable:
+                    GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
+                    parent.x += dx
+                    parent.y += dy
+        if event == 'attack':
+            linearDamage(parent, GAME.player, parent.getPhyAttack(), 'physical', None)
+        if event == 'takedamage':
+            origin, amount, type, subtype = args[1], args[2], args[3], args[4]
+            if parent.currentHitPoints - amount <= 0:
+                parent.event('die', [parent])
+                return
+            else:
+                parent.currentHitPoints -= amount
+        if event == 'die':
+            GAME.creatures.remove(parent)
 
 # DIRECT EFFECTS
 def e_flatheal(target, amount):
@@ -476,7 +483,7 @@ def n_exit(x, y):
 
 # MONSTERS
 def m_slime(x, y):
-    return game_classes.Monster(x, y, [], game_parsers.get_animation('resources/graphics/entities/slime.png'), 'Slime', [], [(b_monsterbase, 50)], slime_stats())
+    return game_classes.Monster(x, y, [], game_parsers.get_animation('resources/graphics/entities/slime.png'), 'Slime', [], [(behaviorMonsterBase(), 50)], slime_stats())
 
 # PLAYABLE CHARACTERS
 def p_normal(x, y):
@@ -487,11 +494,11 @@ def p_normal(x, y):
             portrait_list = [pygame.Surface((32, 32))],
             stats = player_basicstats(),
             equipment = [None for _ in range(7)],
-            inventory = [weapon('Holy sword'), equipment('Cowboy hat'), equipment('Heart locket')],
+            inventory = [drill(0, 0)],
             modifiers = [],
             status = [],
             skilltree = [],
-            behaviors = [(b_playerbase, 50)]
+            behaviors = [(behaviorPlayerBase(), 50)]
             )
 
 def player_basicstats():
@@ -517,7 +524,7 @@ def weapon(name, x = 0, y = 0):
     item = game_parsers.get_weapon(name)
     weapontype = item[4]
     temp = [item[i] for i in range(len(item)) if i != 4]
-    return eval('game_classes.{}'.format(weapontype))(x, y, *(game_parsers.get_animation('resources/graphics/equipment/{}.png'.format(temp[i]), repeat = True) if i == 8 else game_parsers.get_animation('resources/graphics/effects/{}.png'.format(temp[i])) if i == 9 else temp[i] for i in range(10)))
+    return eval('game_classes.{}'.format(weapontype))(x, y, *(game_parsers.get_animation('resources/graphics/equipment/{}.png'.format(temp[i]), repeat = True) if i == 8 else game_parsers.get_animation('resources/graphics/effects/{}.png'.format(temp[i])) if i == 9 else temp[i] for i in range(11)))
 
 def linearDamage(origin, target, amount, maintype, subtype):
     if maintype == 'physical':
@@ -527,3 +534,10 @@ def linearDamage(origin, target, amount, maintype, subtype):
     GAME.addLogMessage(origin.name + ' damages ' + target.name + ' for ' + str(damage) + '.', game_constants.COLOR_LIGHTRED)
     origin.event('dodamage', (target, origin, damage, maintype, subtype))
     target.event('takedamage', (target, origin, damage, maintype, subtype))
+
+
+def drill(x, y):
+    return game_classes.ShortSword(x, y, 'Adamantite drill', 'Mythic', 3, 'This is the drill that will pierce the heavens.', [], [], [(game_effects.drillMod(), 10)], [], ['drill'], game_parsers.get_animation('resources/graphics/equipment/drill1.png', repeat = True), [])
+
+def stoneTileOnDestroy(parent):
+    GAME.map[parent.x][parent.y] = game_classes.Tile(parent.x, parent.y, True, True, pygame.image.load('resources/graphics/tiles/floor_dirt.png'))

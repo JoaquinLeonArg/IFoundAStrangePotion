@@ -1,12 +1,14 @@
 import game_constants
 
+global GAME
+
 # EQUIPMENT STAT MODS #
 class linearStat():
     def __init__(self, priority, stat_name, amount):
         self.priority = priority
         self.stat_name = stat_name
         self.amount = amount
-    def execute(self, target, stat_name, current):
+    def execute(self, target, stat, current):
         if self.stat_name == stat:
             return self.amount + current
         else:
@@ -24,6 +26,13 @@ class nullifyStat():
             return current
     def getDescription(self):
         return [('You have no ____ anymore.', game_constants.COLOR_RED)]
+
+# BEHAVIOR MODS #
+class drillMod():
+    def execute(self, event, parent, args):
+        if event == 'move':
+            x_to, y_to = parent.x + args[0], parent.y + args[1]
+            GAME.map[x_to][y_to].onDestroy()
 
 # SPELL EFFECTS #
 class healFlatEffect():

@@ -6,6 +6,7 @@ import math
 import game_util
 import game_constants
 import game_mapping
+import game_effects
 import sys
 
 # GAME
@@ -34,6 +35,7 @@ def game_init():
     game_util.GAME = GAME
     game_util.SCREEN = SCREEN
     game_mapping.SCREEN = SCREEN
+    game_effects.GAME = GAME
 
 def game_loop():
     while True:
@@ -44,15 +46,14 @@ def game_loop():
             GAME.action = 'none'
             if GAME.movetimer > 0:
                 GAME.movetimer -= 1
+            GAME.camera.update(GAME.player.x * 32, GAME.player.y * 32)
             game_input()
             for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
                 entity.update_frame()
             if GAME.action != 'none':
                 GAME.updateOrder()
-                GAME.creaturesExecuteTurn()
                 GAME.entitiesExecuteTurn()
                 GAME.turn_counter += 1
-            GAME.camera.update(GAME.player.x*32, GAME.player.y*32)
             draw_game()
         CLOCK.tick(60)
 def game_input():
@@ -62,12 +63,23 @@ def game_input():
     if not GAME.visualactiveeffects and GAME.movetimer is 0 and GAME.player.active:
         if keystates[pygame.K_UP]:
             GAME.player.input('up')
-        if keystates[pygame.K_DOWN]:
+        elif keystates[pygame.K_DOWN]:
             GAME.player.input('down')
-        if keystates[pygame.K_LEFT]:
+        elif keystates[pygame.K_LEFT]:
             GAME.player.input('left')
-        if keystates[pygame.K_RIGHT]:
+        elif keystates[pygame.K_RIGHT]:
             GAME.player.input('right')
+        elif keystates[game_constants.KEY_PASSTURN]:
+            GAME.player.input('pass')
+
+        if keystates[game_constants.KEY_MAPUP]:
+            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16, GAME.camera.y + game_constants.CAMERA_HEIGHT*16 - 128)
+        elif keystates[game_constants.KEY_MAPDOWN]:
+            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16, GAME.camera.y + game_constants.CAMERA_HEIGHT*16 + 128)
+        elif keystates[game_constants.KEY_MAPLEFT]:
+            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16 - 128, GAME.camera.y + game_constants.CAMERA_HEIGHT*16)
+        elif keystates[game_constants.KEY_MAPRIGHT]:
+            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16 + 128, GAME.camera.y + game_constants.CAMERA_HEIGHT*16)
 
     for event in events:
         if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
@@ -78,33 +90,34 @@ def game_input():
 
                 if event.key == game_constants.KEY_INVENTORY and not GAME.windows:
                     GAME.windows.append(game_content.Window_PlayerInventory())
-                if event.key == game_constants.KEY_SEARCH and not GAME.windows:
+                elif event.key == game_constants.KEY_SEARCH and not GAME.windows:
                     if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
                         GAME.windows.append(game_content.Window_SearchInventory())
                     else:
                         GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
-                if event.key == game_constants.KEY_STATUS and not GAME.windows:
+                elif event.key == game_constants.KEY_STATUS and not GAME.windows:
                     GAME.windows.append(game_content.Window_Status())
-                if event.key == game_constants.KEY_STATS and not GAME.windows:
+                elif event.key == game_constants.KEY_STATS and not GAME.windows:
                     GAME.windows.append(game_content.Window_Stats())
-                if event.key == game_constants.KEY_EQUIPMENT and not GAME.windows:
+                elif event.key == game_constants.KEY_EQUIPMENT and not GAME.windows:
                     GAME.windows.append(game_content.Window_Equipment())
-                if event.key == game_constants.KEY_SKILLTREE and not GAME.windows:
+                elif event.key == game_constants.KEY_SKILLTREE and not GAME.windows:
                     GAME.windows.append(game_content.Window_SkillTree())
 
-                for window in [w for w in GAME.windows if w.active]:
+                for window in (w for w in GAME.windows if w.active):
                     if event.key == pygame.K_LEFT:
                         window.input('left')
-                    if event.key == pygame.K_RIGHT:
+                    elif event.key == pygame.K_RIGHT:
                         window.input('right')
-                    if event.key == pygame.K_UP:
+                    elif event.key == pygame.K_UP:
                         window.input('up')
-                    if event.key == pygame.K_DOWN:
+                    elif event.key == pygame.K_DOWN:
                         window.input('down')
-                    if event.key == pygame.K_USE:
+                    elif event.key == game_constants.KEY_USE:
                         window.input('use')
-                    if event.key == pygame.K_CANCEL:
+                    elif event.key == game_constants.KEY_CANCEL:
                         window.input('cancel')
+                    break
 
                 if event.key == game_constants.KEY_LOG:
                     GAME.long_log = not GAME.long_log
@@ -207,15 +220,11 @@ def draw_minimap():
         pygame.draw.rect(SCREEN, game_constants.COLOR_YELLOW, pygame.Rect(minimap_x+GAME.player.x*minimap_ratio, minimap_y+GAME.player.y*minimap_ratio, minimap_ratio, minimap_ratio))
 def draw_entities():
     GAME.update_rects.append(GAME.surface_entities.fill(game_constants.COLOR_COLORKEY))
-    for creature in GAME.creatures:
-        if libtcodpy.map_is_in_fov(GAME.light_map, creature.x, creature.y):
-            creature.draw()
-    for entity in GAME.entities:
-        if libtcodpy.map_is_in_fov(GAME.light_map, entity.x, entity.y):
-            entity.draw()
-    for item in GAME.items:
-        if libtcodpy.map_is_in_fov(GAME.light_map, item.x, item.y):
-            item.draw()
+    for i in GAME.creatures + GAME.entities + GAME.items:
+        if libtcodpy.map_is_in_fov(GAME.light_map, i.x, i.y):
+            i.draw()
+        else:
+            i.draw_last_seen()
 def draw_log():
     if GAME.player.y < 7:
         GAME.log_position_y += min((game_constants.LOG_HIDDEN_Y - GAME.log_position_y)*0.1, 1)

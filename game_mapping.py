@@ -11,9 +11,9 @@ pygame.init()
 
 #Tiles: {-2: Wall (Algorithm), -1: Floor (Algorithm), 0: Wall, 1: Floor, 2: Water, 3: Lava, 4: Glass, 5: Void}
 TILES = {
-    -2: (False, False, pygame.image.load('resources/graphics/tiles/wall.png')), # Wall (algorithm)
+    -2: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), game_content.stoneTileOnDestroy), # Wall (algorithm)
     -1: (True, True, pygame.image.load('resources/graphics/tiles/floor_dirt.png')), # Floor (algorithm)
-    0: (False, False, pygame.image.load('resources/graphics/tiles/wall.png')), # Wall
+    0: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), game_content.stoneTileOnDestroy), # Wall
     1: (True, True, pygame.image.load('resources/graphics/tiles/floor.png')), # Floor
     2: (True, True, pygame.image.load('resources/graphics/tiles/water.png')), # Water
     3: (True, True, pygame.image.load('resources/graphics/tiles/lava.png')), # Lava
@@ -78,7 +78,8 @@ def mapgen_dungeon(width, height):
                         if entity == 3 or entity == 4:
                             creatures.append(random.choice(ENEMIES)(x + i, y + j))
                         if entity == 5 or entity == 6 or entity == 7:
-                            items.append(game_content.weapon('Holy sword', x = x + i, y = y + j))
+                            #items.append(game_content.weapon('Holy sword', x = x + i, y = y + j))
+                            pass
 
                 break
 
