@@ -276,6 +276,7 @@ class ChoiceList(UIElement):
     def draw(self):
         pygame.draw.rect(SCREEN, C_DARKGRAY, pygame.Rect(self.x, self.y, self.width, len(self.items)*24))
 
+
 def baseweapon(id):
     return {
         'id': id,

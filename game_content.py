@@ -17,92 +17,57 @@ GAME = None
 
 
 # WINDOWS
-class Window_PlayerInventory(game_classes.WindowList):
+class Window_PlayerInventory(game_classes.Window):
     def __init__(self):
-        self.items = []
-        super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
+        super().__init__(216, 180)
+        self.sprite = game_constants.SPRITE_INVENTORYWINDOW
+        self.index = [0, 0]
+        self.realIndex = 0
+        self.animation_step = 0
+        self.item_x, self.item_y = 0, 0
+        self.description_position = (442, 0)
+        self.getItems()
     def input(self, key):
-        if self.items:
-            super().input(key)
-            if key == 'use':
-                item = GAME.player.inventory[self.index]
-                self.active = False
-                if item.itemType == 'consumable':
-                    self.popup = game_classes.WindowPopupList(self, 'consumable', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, [("Use", game_constants.COLOR_WHITE), ("Drop", game_constants.COLOR_WHITE), ("Cancel", game_constants.COLOR_WHITE)])
-                elif item.itemType == 'equipment':
-                    if GAME.player.inventory[self.index].canEquip():
-                        color = game_constants.COLOR_WHITE
-                    else:
-                        color = game_constants.COLOR_DARKGRAY
-                    self.popup = game_classes.WindowPopupList(self, 'equipment', self.x + self.surface.get_width(), self.y, game_constants.SPRITE_OPTIONSWINDOW, [("Equip", color), ("Drop", game_constants.COLOR_WHITE), ("Cancel", game_constants.COLOR_WHITE)])
-                GAME.windows.append(self.popup)
-        if key == 'cancel':
-            super().input(key)
-            GAME.player.active = True
-    def update(self):
-        super().update()
-        game_util.draw_text_bg(self.surface, 'Inventory', game_constants.POPUP_OFFSET_X + 4, game_constants.POPUP_OFFSET_Y, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_SHADOW) # Draw title
-        if self.items:
-            self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 32, self.surface.get_width() - 8, 16)) # Highlight selected item
-            for itemIndex in range(len(self.items)): # Draw item names
-                game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
-        else:
-            game_util.draw_text_bg(self.surface, '- Empty -', game_constants.POPUP_OFFSET_X + 64,
-                                   32, game_constants.FONT_PERFECTDOS, game_constants.COLOR_GRAY,
-                                   game_constants.COLOR_SHADOW)
-    def getItems(self):
-        self.items = [(item.sprite_list, item.name, item.color, item.itemType, item.description) for item in GAME.player.inventory]
-    def popupInput(self, key):
-        super().popupInput(key)
+        super().input(key)
+        if key == 'left':
+            if self.index[0] - 1 >= 0:
+                self.index[0] -= 1
+        if key == 'right':
+            if self.index[0] + 1 <= 9:
+                self.index[0] += 1
+        if key == 'up':
+            if self.index[1] - 1 >= 0:
+                self.index[1] -= 1
+        if key == 'down':
+            if self.index[1] + 1 <= 7:
+                self.index[1] += 1
         if key == 'use':
-            if self.popup.index == 0: # Use
-                item = GAME.player.inventory[self.index]
-                if self.popup.window_name == 'consumable':
-                    if item.condition():
-                        if 'target_self' in item.tags:
-                            item.use()
-                            self.getItems()
-                            self.destroyPopup()
-                            GAME.action = 'item'
-                            if self.index > 0:
-                                self.index -= 1
-                            #GAME.controlsText = game_constants.TEXT_ONINVENTORY
-                        elif 'target_map' in item.tags:
-                            self.destroyPopup()
-                            self.popup = game_classes.SelectTarget(self, 'consumable_map', item, game_constants.SPRITE_MARKER)
-                            GAME.windows.append(self.popup)
-                            self.visible = False
-                elif self.popup.window_name == 'equipment':
-                    if item.canEquip():
-                        if GAME.player.equipment[item.slot] == None:
-                            GAME.player.equipment[item.slot] = item
-                            item.equip()
-                        else:
-                            equipped = GAME.player.equipment[item.slot]
-                            equipped.unequip()
-                            GAME.player.inventory.append(equipped)
-                            GAME.player.equipment[item.slot] = item
-                            item.equip()
-                        GAME.player.inventory.remove(item)
-                        self.getItems()
-                        self.destroyPopup()
-                        if self.index > 0:
-                            self.index -= 1
-            elif self.popup.index == 1: # Drop
-                item = GAME.player.inventory.pop(self.index)
-                item.x, item.y = GAME.player.x, GAME.player.y
-                GAME.items.append(item)
-                self.getItems()
-                self.destroyPopup()
-                if self.index > 0:
-                    self.index -= 1
-                #GAME.controlsText = game_constants.TEXT_ONINVENTORY
-            elif self.popup.index == 2: # Cancel
-                self.destroyPopup()
-                #GAME.controlsText = game_constants.TEXT_ONINVENTORY
+            pass
         if key == 'cancel':
-            self.destroyPopup()
-class Window_SearchInventory(game_classes.WindowList):
+            self.destroy()
+
+        if key in ['up', 'down', 'left', 'right']:
+            self.animation_step = 0
+        self.realIndex = self.index[0] + self.index[1]*10
+    def draw(self):
+        super().draw()
+        self.animation_step += 1
+
+        # Draw main window
+        GAME.surface_windows.blit(self.sprite, (self.x, self.y))
+        for index, sprites in enumerate(item['sprites'] for item in self.items):
+            i = (index % 10, int(index / 10))
+            GAME.surface_windows.blit(sprites[0], (self.x + i[0]*41 + 16, self.y + i[1]*42 + 49))
+        pygame.draw.rect(GAME.surface_windows, game_constants.COLOR_MENUHIGHLIGHT, (self.x + self.index[0]*41 + 13, self.y + self.index[1]*42 + 43, 36, 36), 2)
+
+        # Draw description window
+        selected_item = self.items[self.realIndex]
+        frame = int(self.animation_step / game_constants.ANIMATION_RATE) % len(selected_item['sprites'])
+        GAME.surface_windows.blit(game_constants.SPRITE_INVENTORYDESCRIPTION, (self.x + self.description_position[0], self.y))
+        GAME.surface_windows.blit(selected_item['sprites_big'][frame], (self.x + self.description_position[0] + 17, self.y + 20))
+    def getItems(self):
+        self.items = [{'index': GAME.player.inventory.index(item),'name': item.name, 'sprites': item.sprite_list, 'sprites_big': [pygame.transform.scale(sprite, (64, 64)) for sprite in item.sprite_list], 'rarity': item.rarity, 'type': item.itemType, 'description': item.description} for item in GAME.player.inventory]
+class Window_SearchInventory(game_classes.Window):
     def __init__(self):
         super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
     def input(self, key):
@@ -130,64 +95,121 @@ class Window_SearchInventory(game_classes.WindowList):
             game_util.draw_text_bg(self.surface, self.items[itemIndex][1], game_constants.POPUP_OFFSET_X, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][2], game_constants.COLOR_SHADOW)
     def getItems(self):
         self.items = [(item.sprite_list, item.name, item.color, item.itemType, item.description) for item in GAME.items if item.x == GAME.player.x and item.y == GAME.player.y]
-class Window_Equipment(game_classes.WindowList):
+class Window_Equipment(game_classes.Window):
     def __init__(self):
-        super().__init__(565, 150, game_constants.SPRITE_ITEMSWINDOW, True)
-        self.item_positions = [(9, 98), (59, 24), (59, 71), (59, 121), (59, 171), (59, 221), (109, 98)]
+        super().__init__(565, 210)
+        self.sprite = game_constants.SPRITE_EQUIPMENTWINDOW
+        self.index = 0
+        self.item_positions = [(9, 124), (59, 50), (59, 97), (59, 147), (59, 197), (59, 247), (109, 124)]
+        self.onPopup = 'none'
+        self.popupIndex = 0
+        self.popupOptions = {'equipped': ['Equip', 'UnEquip', 'Drop'],
+                             'free': ['Equip']}
+        self.popupType = ''
+        self.equipItems = []
+        self.popupOptions_position = (160, 32)
+        self.popupItems_position = (300, 32)
+        self.getItems()
     def input(self, key):
-        if key == 'up' and self.index in [2, 3, 4, 5]:
-            self.index -= 1
-        if key == 'down' and self.index in [1, 2, 3, 4]:
-            self.index += 1
-        if key == 'left':
-            if self.index in [1, 2, 3, 4, 5]:
-                self.index = 0
-            elif self.index == 6:
-                self.index = 2
-        if key == 'right':
-            if self.index in [1, 2, 3, 4, 5]:
-                self.index = 6
-            elif self.index == 0:
-                self.index = 2
-        if key == 'cancel':
-            GAME.windows.remove(self)
-            GAME.player.active = True
-    def update(self):
-        super().update()
-        pygame.draw.rect(self.surface, game_constants.COLOR_GREEN, (self.item_positions[self.index][0]-2, self.item_positions[self.index][1]-2, 34, 34), 2)
+        super().input(key)
+        if self.onPopup == 'slot':
+            if key == 'up' and self.popupIndex > 0:
+                self.popupIndex -= 1
+            if key == 'down' and self.popupIndex < len(self.popupOptions[self.popupType] ) - 1:
+                self.popupIndex += 1
+            if key == 'use':
+                if self.popupIndex == 0: # Equip
+                    self.getItems()
+                    self.onPopup = 'equip'
+                else: # Unequip or drop
+                    equip = GAME.player.equipment[self.index]
+                    equip.unequip()
+                    if self.popupIndex == 1: # Unequip
+                        GAME.player.inventory.append(equip)
+                    else:
+                        equip.x = GAME.player.x
+                        equip.y = GAME.player.y
+                        GAME.items.append(equip)
+                    GAME.player.equipment[self.index] = None
+                    self.getItems()
+                    self.popupType = 'free'
+                    self.popupIndex = 0
+            if key == 'cancel':
+                self.popupIndex = 0
+                self.popupType = ''
+                self.onPopup = 'none'
+
+        elif self.onPopup == 'equip':
+            if key == 'up' and self.popupIndex > 0:
+                self.popupIndex -= 1
+            if key == 'down' and self.popupIndex < len(self.equipItems) - 1:
+                self.popupIndex += 1
+            if key == 'use':
+                if self.popupIndex != 0:
+                    equip = GAME.player.equipment[self.index]
+                    new_equip = self.equipItems[self.popupIndex]
+                    if equip:
+                        equip.unequip()
+                        GAME.player.inventory.append(equip)
+                    GAME.player.equipment[self.index] = new_equip
+                    new_equip.equip()
+                    GAME.player.inventory.remove(new_equip)
+                    self.popupType = 'equipped'
+                self.getItems()
+                self.onPopup = 'slot'
+                self.popupIndex = 0
+            if key == 'cancel':
+                self.popupIndex = 0
+                self.onPopup = 'slot'
+
+        elif self.onPopup == 'none':
+            if key == 'up' and self.index in [2, 3, 4, 5]:
+                self.index -= 1
+            if key == 'down' and self.index in [1, 2, 3, 4]:
+                self.index += 1
+            if key == 'left':
+                if self.index in [1, 2, 3, 4, 5]:
+                    self.index = 0
+                elif self.index == 6:
+                    self.index = 2
+            if key == 'right':
+                if self.index in [1, 2, 3, 4, 5]:
+                    self.index = 6
+                elif self.index == 0:
+                    self.index = 2
+            if key == 'use':
+                self.onPopup = 'slot'
+                if self.items[self.index]:
+                    self.popupType = 'equipped'
+                else:
+                    self.popupType = 'free'
+            if key == 'cancel':
+                self.destroy()
+    def draw(self):
+        super().draw()
+        GAME.surface_windows.blit(self.sprite, (self.x, self.y))
+        pygame.draw.rect(GAME.surface_windows, game_constants.COLOR_GREEN, (self.item_positions[self.index][0]-2 + self.x, self.item_positions[self.index][1]-2 + self.y, 36, 36), 2)
         for index, item in enumerate(self.items):
             if item:
-                self.surface.blit(item.sprite, self.item_positions[index])
+                GAME.surface_windows.blit(item.sprite, (self.item_positions[index][0] + self.x, self.item_positions[index][1] + self.y))
+        if self.onPopup == 'slot':
+            GAME.surface_windows.blit(game_constants.SPRITE_OPTIONSWINDOW, (self.x + self.popupOptions_position[0], self.y + self.popupOptions_position[1]))
+            GAME.surface_windows.fill(game_constants.COLOR_MENUHIGHLIGHT, (self.x + self.popupOptions_position[0], self.y + self.popupOptions_position[1] + 2 + 24*self.popupIndex, 118, 24))
+            for index, option in enumerate(self.popupOptions[self.popupType]):
+                game_util.draw_text(GAME.surface_windows, option, self.x + self.popupOptions_position[0] + 8, self.y + self.popupOptions_position[1] + 6 + 24*index, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+        elif self.onPopup == 'equip':
+            GAME.surface_windows.blit(game_constants.SPRITE_OPTIONSWINDOW, (self.x + self.popupOptions_position[0], self.y + self.popupOptions_position[1]))
+            GAME.surface_windows.fill(game_constants.COLOR_MENUHIGHLIGHT, (self.x + self.popupOptions_position[0], self.y + self.popupOptions_position[1] + 2, 118, 24))
+            for index, option in enumerate(self.popupOptions[self.popupType]):
+                game_util.draw_text(GAME.surface_windows, option, self.x + self.popupOptions_position[0] + 8, self.y + self.popupOptions_position[1] + 6 + 24*index, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
+            GAME.surface_windows.blit(game_constants.SPRITE_ITEMLIST, (self.x + self.popupItems_position[0], self.y + self.popupItems_position[1]))
+            GAME.surface_windows.fill(game_constants.COLOR_MENUHIGHLIGHT, (self.x + self.popupItems_position[0], self.y + self.popupItems_position[1] + 2 + 24*self.popupIndex, 178, 24))
+            for index, name in enumerate(["None"] + [item.name for item in self.equipItems[1:]]):
+                game_util.draw_text(GAME.surface_windows, name, self.x + self.popupItems_position[0] + 8, self.y + self.popupItems_position[1] + 6 + 24*index, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
     def getItems(self):
         self.items = [item for item in GAME.player.equipment]
-    '''def popupInput(self, key):
-        super().popupInput(key)
-        if key == 'use':
-            if self.popup.index == 0:
-                equipped = GAME.player.equipment[self.index]
-                if equipped != None:
-                    equipped.unequip()
-                    GAME.player.inventory.append(equipped)
-                    GAME.player.equipment[self.index] = None
-            else:
-                item = GAME.player.inventory[self.popup.items[self.popup.index - 1][2]]
-                if GAME.player.equipment[item.slot] == None:
-                    GAME.player.equipment[item.slot] = item
-                    item.equip()
-                else:
-                    equipped = GAME.player.equipment[self.index]
-                    equipped.unequip()
-                    GAME.player.inventory.append(equipped)
-                    GAME.player.equipment[item.slot] = item
-                    item.equip()
-                GAME.player.inventory.remove(item)
-            self.getItems()
-            self.destroyPopup()
-            GAME.action = 'item'
-            #GAME.controlsText = game_constants.TEXT_ONINVENTORY
-        if key == 'cancel':
-            self.destroyPopup()'''
-class Window_Status(game_classes.WindowList):
+        self.equipItems = [None] + [item for item in GAME.player.inventory if item.slot == self.index and item.canEquip()]
+class Window_Status(game_classes.Window):
     def __init__(self):
         for status in GAME.player.status:
             status.update()
@@ -210,7 +232,7 @@ class Window_Status(game_classes.WindowList):
                 game_util.draw_text_bg(self.surface, str(self.items[itemIndex][2]), self.surface.get_width() - game_constants.POPUP_OFFSET_X - 48, itemIndex*16 + 32, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1], game_constants.COLOR_SHADOW)
     def getItems(self):
         self.items = [(status.name, status.color, status.turns) for status in GAME.player.status]
-class Window_Stats(game_classes.WindowList):
+class Window_Stats(game_classes.Window):
     def __init__(self):
         super().__init__(0, 336, game_constants.SPRITE_ITEMSWINDOW, True)
     def input(self, key):
@@ -278,7 +300,7 @@ class Window_SkillTree(game_classes.Window):
             else:
                 color = game_constants.COLOR_GRAY
             pygame.draw.rect(self.surface, color, (skill.x*32 + 32, skill.y*32 + 64, 32, 32), 3)
-class Window_Trade(game_classes.WindowList):
+class Window_Trade(game_classes.Window):
     def __init__(self, items):
         super().__init__(0, 336, game_constants.SPRITE_TRADEWINDOW, True)
         self.wx = 0
@@ -494,7 +516,7 @@ def p_normal(x, y):
             portrait_list = [pygame.Surface((32, 32))],
             stats = player_basicstats(),
             equipment = [None for _ in range(7)],
-            inventory = [drill(0, 0)],
+            inventory = [drill(0, 0) for _ in range(80)],
             modifiers = [],
             status = [],
             skilltree = [],

@@ -16,6 +16,7 @@ DESCWINDOW_WIDTH = 430
 DESCWINDOW_HEIGHT = 200
 
 ANIMATION_WAIT = 2
+ANIMATION_RATE = 5
 
 COLOR_BLACK = (0, 0, 0)
 COLOR_LIGHTGRAY = (200, 200, 200)
@@ -42,20 +43,23 @@ COLOR_HP = (255, 0, 0)
 COLOR_BORDER = (40, 40, 40)
 COLOR_SHADOW = (10, 10, 10)
 COLOR_HUNGER = (0, 200, 0)
+COLOR_MENUHIGHLIGHT = (100, 100, 200)
 
 COLOR_COLORKEY = (255, 0, 255)
 
 SPRITE_PLAYER = pygame.image.load('resources/player2.png')
 SPRITE_ENEMY_SLIME = pygame.image.load('resources/enemy_slime.png')
 SPRITE_TITLE = pygame.image.load('resources/title.png')
-SPRITE_DESCRIPTIONWINDOW = pygame.image.load('resources/graphics/window_description.png')
-SPRITE_ITEMSWINDOW = pygame.image.load('resources/graphics/ui/ui_equipment.png')
-SPRITE_OPTIONSWINDOW = pygame.image.load('resources/optionswindow.png')
+SPRITE_INVENTORYWINDOW = pygame.image.load('resources/graphics/ui/ui_inventory.png')
+SPRITE_EQUIPMENTWINDOW = pygame.image.load('resources/graphics/ui/ui_equipment.png')
+SPRITE_OPTIONSWINDOW = pygame.image.load('resources/graphics/ui/ui_options.png')
 SPRITE_STATUS = pygame.image.load('resources/graphics/ui/ui_status.png')
 SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
 SPRITE_TRADEWINDOW = pygame.image.load('resources/graphics/window_trade.png')
 SPRITE_LOG = pygame.image.load('resources/graphics/ui/ui_log.png')
 SPRITE_POPUP = pygame.image.load('resources/graphics/ui/ui_popup.png')
+SPRITE_ITEMLIST = pygame.image.load('resources/graphics/ui/ui_itemlist.png')
+SPRITE_INVENTORYDESCRIPTION = pygame.image.load('resources/graphics/ui/ui_inventorydescription.png')
 
 SPRITE_MARKER = pygame.image.load('resources/graphics/marker.png')
 

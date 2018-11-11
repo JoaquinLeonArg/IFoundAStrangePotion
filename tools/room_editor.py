@@ -54,7 +54,6 @@ def initialize():
         handleInput()
         drawCycle()
 
-
 def drawCycle():
     SCREEN.fill(C_BLACK)
     pygame.draw.rect(SCREEN, C_GRAY, pygame.Rect(0, WINDOW_SIZE[1] - 134, WINDOW_SIZE[0], WINDOW_SIZE[1]))
@@ -341,5 +340,22 @@ def baseroom():
                                         'size': 0,
                                         'loot': 0}
                           }
+def baseweapon(id):
+    return {
+        'id': id,
+        'type': 'weapon',
+        'name': '',
+        'description': '',
+        'rarity': 0,
+        'size': 0,
+        'slot': 0,
+        'stats': {},
+        'statmods': [],
+        'behaviormods': [],
+        'requirements': {},
+        'tags': [],
+        'sprite': '../resources/graphics/equipment/sword1.png',
+        'spriteattack': '../resources/graphics/effects/slash1.png'
+    }
 
 initialize()

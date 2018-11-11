@@ -71,7 +71,7 @@ class Game:
         self.log = []
         self.creatures = []
         self.camera = Camera()
-        self.windows = []
+        self.window = None
         self.items = []
         self.entities = []
         self.visualeffects = []
@@ -93,7 +93,6 @@ class Game:
         # Surfaces definition
         self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
         self.surface_log = pygame.Surface((409, 133))
-        #self.surface_effects = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
         self.surface_status = pygame.Surface((699, 85 + 128)) # 85 for the main sprite, 128 for the extra message box that pops up from the bottom.
         self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
         self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
@@ -292,102 +291,24 @@ class CreatureMoveVisualEffect(LoopVisualEffect):
         self.creature.visible = True
 
 class Window:
-    def __init__(self, x, y, sprite):
+    def __init__(self, x, y):
         self.x, self.y = (x, y)
-        self.sprite = sprite.convert()
-        self.surface = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()))
-        self.parent = None
-        self.redraw = True
+        self.surface = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
+        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
         self.visible = True
         self.active = True
-        self.popup = None
-        GAME.rd_win = True
         GAME.player.active = False
     def draw(self):
         if not self.visible:
             return
-        if self.redraw:
-            self.update()
-        GAME.surface_windows.blit(self.surface, (self.x, self.y))
-    def update(self):
-        self.surface.blit(self.sprite, (0, 0))
+        self.surface.fill(game_constants.COLOR_COLORKEY)
     def destroy(self):
-        if self in GAME.windows:
-            GAME.windows.remove(self)
-        if self.parent == None:
-            GAME.player.active = True
-        GAME.rd_win = True
+        GAME.window = None
+        GAME.player.active = True
+        GAME.surface_windows.fill(game_constants.COLOR_COLORKEY)
     def input(self, key):
         if not self.active:
             return
-        if self.popup == None:
-            self.getItems()
-            self.basicControls(key)
-            self.redraw = True
-        else:
-            self.popup.input(key)
-            self.popup.redraw = True
-        GAME.rd_win = True
-    def popupInput(self, key):
-        if self.popup == None:
-            return
-    def destroyPopup(self):
-        self.popup.destroy()
-        self.popup = None
-        self.active = True
-        GAME.rd_win = True
-    def basicControls(self, key):
-        pass
-    def getItems(self):
-        pass
-class WindowList(Window):
-    def __init__(self, x, y, sprite, descriptable):
-        super().__init__(x, y, sprite)
-        self.index = 0
-        self.getItems()
-    def basicControls(self, key):
-        if key == 'up':
-            self.index = (self.index - 1) % len(self.items)
-        elif key == 'down':
-            self.index = (self.index + 1) % len(self.items)
-        elif key == 'cancel':
-            self.destroy()
-    def getItems(self):
-        self.items = []
-    def update(self):
-        super().update()
-    # def updateDescription(self):
-    #     if self.needDesc:
-    #         GAME.descriptionWindow.x = self.x - game_constants.DESCWINDOW_WIDTH
-    #         GAME.descriptionWindow.y = min(self.index*16+self.yoffset + 32, game_constants.CAMERA_HEIGHT*32 - game_constants.DESCWINDOW_HEIGHT)
-class WindowPopupList(WindowList):
-    def __init__(self, parent_window, window_name, x, y, sprite, options_list):
-        super().__init__(x, y, sprite, False)
-        self.parent_window = parent_window
-        self.window_name = window_name
-        self.items = options_list
-    def input(self, key):
-        self.basicControls(key)
-        self.redraw = True
-        GAME.rd_win = True
-    def update(self):
-        super().update()
-        self.surface.fill(game_constants.COLOR_DARKRED, pygame.Rect(4, self.index*16 + 8, self.surface.get_width() - 8, 16)) # Highlight selected item
-        for itemIndex in range(len(self.items)): # Draw item names
-            game_util.draw_text_bg(self.surface, self.items[itemIndex][0], game_constants.POPUP_OFFSET_X, itemIndex*16 + 8, game_constants.FONT_PERFECTDOS, self.items[itemIndex][1], game_constants.COLOR_SHADOW)
-    def basicControls(self, key):
-        if key == 'up':
-            self.index = (self.index - 1) % len(self.items)
-        elif key == 'down':
-            self.index = (self.index + 1) % len(self.items)
-        elif key == 'cancel':
-            self.parent_window.popupInput('cancel')
-        elif key == 'use':
-            self.parent_window.popupInput('use')
-    def getItems(self):
-        pass
-    def destroy(self):
-        GAME.windows.remove(self)
 class SelectTarget:
     def __init__(self, parent_window, window_name, item, marker_sprite):
         self.previousCamera = (GAME.camera.x, GAME.camera.y)
@@ -602,6 +523,7 @@ class Equipment(Item):
         for statmod in self.statmods:
             GAME.player.statmods.append(statmod)
     def unequip(self):
+        return # TODO: FIX THIS METHOD
         for stat, value in self.stats:
             GAME.player.stats[stat] -= value
         for mod in self.mods:

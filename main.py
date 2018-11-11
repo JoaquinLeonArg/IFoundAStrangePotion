@@ -88,36 +88,35 @@ def game_input():
 
         if event.type == pygame.KEYDOWN and not GAME.visualactiveeffects:
 
-                if event.key == game_constants.KEY_INVENTORY and not GAME.windows:
-                    GAME.windows.append(game_content.Window_PlayerInventory())
-                elif event.key == game_constants.KEY_SEARCH and not GAME.windows:
+                if event.key == game_constants.KEY_INVENTORY and not GAME.window:
+                    GAME.window = game_content.Window_PlayerInventory()
+                elif event.key == game_constants.KEY_SEARCH and not GAME.window:
                     if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
-                        GAME.windows.append(game_content.Window_SearchInventory())
+                        GAME.window = game_content.Window_SearchInventory()
                     else:
                         GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
-                elif event.key == game_constants.KEY_STATUS and not GAME.windows:
-                    GAME.windows.append(game_content.Window_Status())
-                elif event.key == game_constants.KEY_STATS and not GAME.windows:
-                    GAME.windows.append(game_content.Window_Stats())
-                elif event.key == game_constants.KEY_EQUIPMENT and not GAME.windows:
-                    GAME.windows.append(game_content.Window_Equipment())
-                elif event.key == game_constants.KEY_SKILLTREE and not GAME.windows:
-                    GAME.windows.append(game_content.Window_SkillTree())
+                elif event.key == game_constants.KEY_STATUS and not GAME.window:
+                    GAME.window= game_content.Window_Status()
+                elif event.key == game_constants.KEY_STATS and not GAME.window:
+                    GAME.window = game_content.Window_Stats()
+                elif event.key == game_constants.KEY_EQUIPMENT and not GAME.window:
+                    GAME.window = game_content.Window_Equipment()
+                elif event.key == game_constants.KEY_SKILLTREE and not GAME.window:
+                    GAME.window = game_content.Window_SkillTree()
 
-                for window in (w for w in GAME.windows if w.active):
+                if GAME.window:
                     if event.key == pygame.K_LEFT:
-                        window.input('left')
+                        GAME.window.input('left')
                     elif event.key == pygame.K_RIGHT:
-                        window.input('right')
+                        GAME.window.input('right')
                     elif event.key == pygame.K_UP:
-                        window.input('up')
+                        GAME.window.input('up')
                     elif event.key == pygame.K_DOWN:
-                        window.input('down')
+                        GAME.window.input('down')
                     elif event.key == game_constants.KEY_USE:
-                        window.input('use')
+                        GAME.window.input('use')
                     elif event.key == game_constants.KEY_CANCEL:
-                        window.input('cancel')
-                    break
+                        GAME.window.input('cancel')
 
                 if event.key == game_constants.KEY_LOG:
                     GAME.long_log = not GAME.long_log
@@ -161,10 +160,10 @@ def draw_game():
     draw_log()
     draw_status()
     draw_map()
-    draw_entities() # SAME AS EFFECTS
+    draw_entities()
+    draw_windows()
 
     # BLIT ALL SURFACES INTO THE MAIN SURFACE
-    # , GAME.surface_effects
     for surface in [GAME.surface_map, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 8)
         SCREEN.blit(surface, (0, 8))
     draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
@@ -172,7 +171,6 @@ def draw_game():
     SCREEN.blit(GAME.surface_status, (GAME.status_position_x, GAME.status_position_y)) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
 
     draw_minimap()
-    draw_windows()
 
     # FOR DEBUG PURPOSES
     #GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 30, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
@@ -196,14 +194,9 @@ def draw_map():
                 GAME.surface_map.blit(GAME.map[x][y].sprite_shadow, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
     pygame.draw.rect(GAME.surface_map, game_constants.COLOR_BORDER, pygame.Rect(game_constants.BORDER_THICKNESS, game_constants.BORDER_THICKNESS, game_constants.CAMERA_WIDTH*32-game_constants.BORDER_THICKNESS*2, game_constants.CAMERA_HEIGHT*32-game_constants.BORDER_THICKNESS*2), game_constants.BORDER_THICKNESS*2)
 def draw_minimap():
-    if len(GAME.windows) != 0:
+    if GAME.window:
         return
-    if GAME.show_minimap == 0:
-        minimap_ratio = 2
-    elif GAME.show_minimap == 1:
-        minimap_ratio = 4
-    else:
-        minimap_ratio = 0
+    minimap_ratio = (GAME.show_minimap + 1)*2
     minimap_x = 10
     minimap_y = game_constants.CAMERA_HEIGHT*32-len(GAME.map[0])*minimap_ratio-100
     minimap_width = len(GAME.map)*minimap_ratio
@@ -256,10 +249,9 @@ def draw_effects():
         effect.update()
         effect.draw()
 def draw_windows():
-    GAME.update_rects.append(GAME.surface_windows.fill(game_constants.COLOR_COLORKEY))
-    for window in GAME.windows: # DRAW ALL VISIBLE IN-GAME WINDOWS
-        if window.visible:
-            window.draw()
+    GAME.surface_windows.fill(game_constants.COLOR_COLORKEY)
+    if GAME.window:
+        GAME.window.draw()
 
 def draw_menu():
     sin = math.sin(MENU.timer)
