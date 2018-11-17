@@ -147,8 +147,9 @@ class Game:
         if self.popup_time == -1 and self.popup_position_y == 0:
             self.popup_lines = []
     def addLogMessage(self, message, color):
-        self.log.insert(0, (message, color))
-        self.rd_log = True
+        for i in reversed(game_util.wrap_text(message, 46)):
+            self.log.insert(0, (i, color))
+            self.rd_log = True
     def entitiesExecuteTurn(self):
         for entity in self.entities + self.creatures + self.items:
             entity.event('turn', [entity])
@@ -213,8 +214,9 @@ class Tile:
     def onDestroy(self):
         if self.destroy_func:
             self.destroy_func(self)
-    def onWalk(self):
-        pass
+    def onWalk(self, creature):
+        if self.walk_func:
+            self.walk_func(self, creature)
 class Camera:
     def __init__(self):
         self.x = 0
@@ -396,8 +398,9 @@ class Entity:
     def destroy(self):
         GAME.entities.remove(self)
     def event(self, event_name, args = ()):
-        for e in sorted(self.behaviors, key = lambda x: x[1]):
-            e[0].execute(event_name, self, args)
+        for e in sorted(self.behaviors, key = lambda x: x.priority):
+            print(e, event_name, args)
+            e.execute(event_name, self, args)
 class Creature(Entity):
     def __init__(self, x, y, tags, sprite_list, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors)
@@ -405,33 +408,21 @@ class Creature(Entity):
         self.behaviors = behaviors
         self.stats = stats
         self.statmods = statmods
-        self.currentHitPoints = self.getMaxHitPoints()
-        self.currentMagicPoints = self.getMaxMagicPoints()
+        self.currentHitPoints = self.getStat('HitPoints')
+        self.currentMagicPoints = self.getStat('MagicPoints')
     def isEnemy(self):
         return 'enemy' in self.tags
     def draw(self):
         super().draw()
         if self.visible:
-            pygame.draw.rect(GAME.surface_entities, game_constants.COLOR_GREEN, ((self.x*32 - GAME.camera.x)+1, (self.y*32 - GAME.camera.y)+30, self.currentHitPoints/self.getMaxHitPoints()*(self.sprite.get_width()-1), 1))
+            pygame.draw.rect(GAME.surface_entities, game_constants.COLOR_GREEN, ((self.x*32 - GAME.camera.x)+1, (self.y*32 - GAME.camera.y)+30, self.currentHitPoints/self.getStat('HitPoints')*(self.sprite.get_width()-1), 1))
 
-    def getStatMod(self, stat_name):
+    def getStat(self, stat_name):
         statmods = sorted(self.statmods, key = lambda x: x.priority)
         amount = 0
         for mod in statmods:
             amount = mod.execute(self, stat_name, amount)
-        return amount
-    def getMaxHitPoints(self):
-        return max(int((self.stats['HitPointsFlat'])*self.stats['HitPointsMult']/100) + self.getStatMod('HitPointsFlat'), 1)
-    def getMaxMagicPoints(self):
-        return max(int((self.stats['MagicPointsFlat'])*self.stats['MagicPointsMult']/100) + self.getStatMod('MagicPointsFlat'), 1)
-    def getPhyAttack(self):
-        return max(int(self.stats['PhyAttackFlat']*self.stats['PhyAttackMult']/100) + self.getStatMod('PhyAttackFlat'), 0)
-    def getMagAttack(self):
-        return max(int((self.stats['MagAttackFlat'])*self.stats['MagAttackMult']/100) + self.getStatMod('MagAttackFlat'), 0)
-    def getPhyArmor(self):
-        return max(int((self.stats['PhyArmorFlat'])*self.stats['PhyArmorMult']/100) + self.getStatMod('PhyArmorFlat'), 1)
-    def getMagArmor(self):
-        return max(int((self.stats['MagArmorFlat'])*self.stats['MagArmorMult']/100) + self.getStatMod('MagArmorFlat'), 1)
+        return max(int((self.stats[stat_name + 'Flat']) * self.stats[stat_name + 'Mult'] / 100) + amount, game_constants.BASE_STATS[stat_name + 'Flat'])
 class Player(Creature):
     def __init__(self, x, y, sprite_list, portrait_list, stats, equipment, inventory, modifiers, status, skilltree, behaviors, statmods = []):
         super().__init__(x, y, ['player'], sprite_list, behaviors, stats, statmods)
@@ -447,7 +438,6 @@ class Player(Creature):
 
         self.potion = None
 
-        self.modifiers = modifiers
         self.status = status
         self.skilltree = skilltree
         self.behaviors = behaviors
@@ -488,7 +478,7 @@ class Monster(Creature):
         self.drops = drops
         self.tags = ['monster'] + tags
 class Item(Entity):
-    def __init__(self, x, y, tags, sprite_list, name, rarity, size, description):
+    def __init__(self, x, y, tags, sprite_list, name, rarity, size, flavor):
         super().__init__(x, y, tags, sprite_list)
         self.name = name
         self.size = size
@@ -504,43 +494,44 @@ class Item(Entity):
         if self.rarity == 'Divine':
             self.color = game_constants.COLOR_DARKRED
         else:
-            self.color = game_constants.COLOR_GRAY
-        self.description = description
+            self.color = game_constants.COLOR_LIGHTGRAY
+        self.description = {'flavor': flavor}
 class Equipment(Item):
-    def __init__(self, x, y, name, rarity, size, description, slot, stats, statmods, mods, requirements, tags, sprite_list):
-        super().__init__(x, y, tags, sprite_list, name, rarity, size, description)
+    def __init__(self, x, y, name, rarity, size, flavor, slot, stats, mods, requirements, tags, sprite_list):
+        super().__init__(x, y, tags, sprite_list, name, rarity, size, flavor)
         self.slot = slot
         self.itemType = 'equipment'
         self.stats = stats
-        self.statmods = statmods
         self.mods = mods
-        self.requirements = [requirement(self) for requirement in requirements]
+        self.requirements = requirements
+        self.description = {'flavor': self.description['flavor'],
+                            'stats': [i.getDescription for i in self.stats],
+                            'mods': [i.getDescription for i in self.mods],
+                            'requirements': [i.getDescription for i in self.requirements]}
     def equip(self):
-        for stat, value in self.stats:
-            GAME.player.stats[stat] += value
+        for stat in self.stats:
+            GAME.player.statmods.append(stat)
         for mod in self.mods:
             GAME.player.behaviors.append(mod)
-        for statmod in self.statmods:
-            GAME.player.statmods.append(statmod)
     def unequip(self):
-        return # TODO: FIX THIS METHOD
-        for stat, value in self.stats:
-            GAME.player.stats[stat] -= value
+        for stat in self.stats:
+            GAME.player.statmods.remove(stat)
         for mod in self.mods:
-            GAME.player.statmods.remove(mod)
+            GAME.player.behaviors.remove(mod)
     def canEquip(self):
-        return all(requirement() for requirement in self.requirements)
+        return all(requirement.execute(GAME.player) for requirement in self.requirements)
 class Weapon(Equipment):
-    def __init__(self, x, y, name, rarity, size, description, stats, statmods, mods, requirements, tags, sprite_list, spriteattack_list):
-        super().__init__(x, y, name, rarity, size, description, 0, stats, statmods, mods, requirements, tags, sprite_list)
+    def __init__(self, x, y, name, rarity, size, flavor, stats, mods, requirements, tags, sprite_list, spriteattack_list):
+        super().__init__(x, y, name, rarity, size, flavor, 0, stats, mods, requirements, tags, sprite_list)
         self.spriteattack_list = spriteattack_list
+        self.itemType = 'weapon'
     def attackTargets(self, relativePosition):
         pass
     def attackTiles(self, relativePosition):
         pass
 class Consumable(Item):
-    def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, useCondition = [], charges = 1):
-        super().__init__(x, y, tags, sprite_list, name, color, size, description)
+    def __init__(self, x, y, tags, sprite_list, name, color, size, flavor, effects, useCondition = [], charges = 1):
+        super().__init__(x, y, tags, sprite_list, name, color, size, flavor)
         self.tags += ['target_self']
         self.onUse = effects
         self.useCondition = useCondition
@@ -561,8 +552,8 @@ class Consumable(Item):
     def gotUsed(self):
         return self.used
 class ConsumableMap(Consumable):
-    def __init__(self, x, y, tags, sprite_list, name, color, size, description, effects, initialTarget, maxRange, useCondition = [], charges = [], targetCondition = []):
-        super().__init__(x, y,tags, sprite_list, name, color, size, description, effects, useCondition, charges)
+    def __init__(self, x, y, tags, sprite_list, name, color, size, flavor, effects, initialTarget, maxRange, useCondition = [], charges = [], targetCondition = []):
+        super().__init__(x, y,tags, sprite_list, name, color, size, flavor, effects, useCondition, charges)
         self.tags.remove('target_self')
         self.tags += ['target_map']
         self.initialTarget = initialTarget(self)

@@ -34,8 +34,10 @@ def add_dicts(dict_base, dict_add):
     return new_dict
 
 # TEXT
-def draw_text(surface, text, x, y, font, text_color):
-    rect1 = surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+1, y+1))
+def draw_text(surface, text, x, y, font, text_color, shadow = True):
+    rect1 = None
+    if shadow:
+        rect1 = surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+1, y+1))
     rect2 = surface.blit(font.render(text, False, text_color), (x, y))
     return rect1, rect2
 def draw_text_bg(surface, text, x, y, font, text_color, bg_color):
@@ -44,6 +46,16 @@ def draw_text_bg(surface, text, x, y, font, text_color, bg_color):
     surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+1, y+1))
     surface.blit(font.render(text, False, text_color), (x, y))
     return rect
+def wrap_text(text, max_length):
+    string = ""
+    result = []
+    for word in text.split(" "):
+        if len(string) + len(word) > max_length:
+            result.append(string)
+            string = ""
+        string += word + " "
+    result.append(string)
+    return result
 
 # OTHER
 def map_light_update(light_map):

@@ -241,9 +241,9 @@ def draw_status():
     for index, line in enumerate(GAME.popup_lines):
         game_util.draw_text(GAME.surface_status, line, GAME.popup_position_x + 24, 128 - GAME.popup_position_y + 12*index + 8,game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE)
     GAME.surface_status.blit(game_constants.SPRITE_STATUS, (0, 128))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, (91, 8 + 128, 77*(GAME.player.currentHitPoints // GAME.player.getMaxHitPoints()), 13))
-    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, (91, 8 + 128 + 18, 77 * (GAME.player.currentMagicPoints // GAME.player.getMaxMagicPoints()), 13))
-    #pygame.draw.rect(GAME.surface_status, game_constants.COLOR_BROWN, (91, 8 + 128 + 18*2, 77 * (GAME.player.getCurrentCarry() // GAME.player.getMaxCarry()), 13)) # TODO: Fix this
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_HP, (91, 8 + 128, 77*(GAME.player.currentHitPoints // GAME.player.getStat('HitPoints')), 13))
+    pygame.draw.rect(GAME.surface_status, game_constants.COLOR_YELLOW, (91, 8 + 128 + 18, 77 * (GAME.player.currentMagicPoints // GAME.player.getStat('MagicPoints')), 13))
+    #pygame.draw.rect(GAME.surface_status, game_constants.COLOR_BROWN, (91, 8 + 128 + 18*2, 77 * (GAME.player.getCurrentCarry() // GAME.player.getStat('MaxCarry)), 13)) # TODO: Fix this
 def draw_effects():
     for effect in (GAME.visualeffects + GAME.visualactiveeffects): # UPDATE ALL VISUAL EFFECTS AND DRAW THEM
         effect.update()

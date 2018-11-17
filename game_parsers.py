@@ -67,6 +67,6 @@ def get_weapon(item_name):
 def get_room(boss = False):
     return random.choice([room for room in rooms if room['isBossRoom'] is boss])
 
-equipment = parse_equipment()
-weapons = parse_weapons()
+# equipment = parse_equipment()
+# weapons = parse_weapons()
 rooms = parse_rooms()

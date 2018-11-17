@@ -1,0 +1,44 @@
+WEAPON:
+{
+id: int,
+name: str,
+type: str,
+rarity: int,
+flavor: str,
+requeriments: [{class: str, arguments: [any]}],
+effects: [{class: str, arguments: [any]}],
+stats: [{stat: str, amount: int}],
+sprite_item: str,
+sprite_attack: str,
+value: int
+}
+
+
+EQUIPMENT:
+{
+id: int,
+name: str,
+slot: int,
+rarity: int,
+flavor: str,
+requeriments: [{class: str, arguments: [any]}],
+effects: [{class: str, arguments: [any]}],
+stats: [{stat: str, amount: int}],
+sprite_item: str,
+value: int
+}
+
+CONSUMABLE:
+{
+id: int,
+name: str,
+type: str,
+rarity: int,
+flavor: str,
+requeriments: [{class: str, arguments: [any]}],
+effects: [{class: str, arguments: [any]}],
+stats: [{stat: str, amount: int}],
+sprite_item: str,
+sprite_attack: str,
+value: int
+}

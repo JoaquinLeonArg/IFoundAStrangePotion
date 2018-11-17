@@ -44,6 +44,8 @@ COLOR_BORDER = (40, 40, 40)
 COLOR_SHADOW = (10, 10, 10)
 COLOR_HUNGER = (0, 200, 0)
 COLOR_MENUHIGHLIGHT = (100, 100, 200)
+COLOR_POSITIVESTAT = (100, 200, 100)
+COLOR_NEGATIVESTAT = (200, 100, 100)
 
 COLOR_COLORKEY = (255, 0, 255)
 
@@ -117,10 +119,10 @@ MONSTERS_POOL = [[0], [0], [0], [0], [0], [0]]
 CHANCE_WALL1TREASURE = 0.5
 
 BASE_STATS = {
-    'HitPointsFlat': 20,
+    'HitPointsFlat': 10,
     'HitPointsMult': 100,
     'MagicPointsMult': 100,
-    'MagicPointsFlat': 0,
+    'MagicPointsFlat': 1,
 
     'HealingMult': 100,
     'MaxCarry': 10,
