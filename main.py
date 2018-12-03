@@ -13,7 +13,7 @@ import sys
 def game_init():
     global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
     pygame.init()
-    GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), 0, 16)
+    GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), pygame.DOUBLEBUF|pygame.HWSURFACE|pygame.FULLSCREEN)
 
     import game_classes
     import game_content
@@ -89,20 +89,20 @@ def game_input():
         if event.type == pygame.KEYDOWN and not GAME.visualactiveeffects:
 
                 if event.key == game_constants.KEY_INVENTORY and not GAME.window:
-                    GAME.window = game_content.Window_PlayerInventory()
+                    GAME.window = game_content.WindowPlayerInventory()
                 elif event.key == game_constants.KEY_SEARCH and not GAME.window:
                     if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
-                        GAME.window = game_content.Window_SearchInventory()
+                        GAME.window = game_content.WindowSearchInventory()
                     else:
                         GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
                 elif event.key == game_constants.KEY_STATUS and not GAME.window:
-                    GAME.window= game_content.Window_Status()
+                    GAME.window= game_content.WindowStatus()
                 elif event.key == game_constants.KEY_STATS and not GAME.window:
-                    GAME.window = game_content.Window_Stats()
+                    GAME.window = game_content.WindowStats()
                 elif event.key == game_constants.KEY_EQUIPMENT and not GAME.window:
-                    GAME.window = game_content.Window_Equipment()
+                    GAME.window = game_content.WindowEquipment()
                 elif event.key == game_constants.KEY_SKILLTREE and not GAME.window:
-                    GAME.window = game_content.Window_SkillTree()
+                    GAME.window = game_content.WindowSkillTree()
 
                 if GAME.window:
                     if event.key == pygame.K_LEFT:
@@ -146,9 +146,7 @@ def menu_input():
                     if MENU.option == 0:
 
                         STATE = 9
-                        GAME.player = game_content.p_normal(game_constants.MAP_WIDTH[0]//2, game_constants.MAP_HEIGHT[0]//2)
-                        GAME.generateMap(game_mapping.mapgen_dungeon)
-                        GAME.creatures.append(GAME.player)
+                        GAME.start(game_content.p_normal(game_constants.MAP_WIDTH[0] // 2, game_constants.MAP_HEIGHT[0] // 2), game_mapping.mapgen_woods)
                     return
                 if event.key == game_constants.KEY_CANCEL:
                     MENU.option =  (MENU.option + 1) % 3
@@ -187,7 +185,7 @@ def draw_map():
     GAME.update_rects.append(GAME.surface_map.fill(game_constants.COLOR_BLACK))
     for x in range(math.floor(GAME.camera.x/32), math.ceil(GAME.camera.x/32) + game_constants.CAMERA_WIDTH):
         for y in range(math.floor(GAME.camera.y/32), math.ceil(GAME.camera.y/32) + game_constants.CAMERA_HEIGHT):
-            if libtcodpy.map_is_in_fov(GAME.light_map, x, y):
+            if libtcodpy.map_is_in_fov(GAME.light_map, x, y) or GAME.debug:
                 GAME.surface_map.blit(GAME.map[x][y].sprite, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
                 GAME.map[x][y].discovered = True
             elif GAME.map[x][y].discovered:
@@ -275,49 +273,12 @@ def draw_menu():
 
     pygame.transform.scale(SCREEN, (game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), GAMEWINDOW)
 
-    pygame.display.update(MENU.update_rects)
-    MENU.update_rects = []
+    pygame.display.flip()
+
+    #pygame.display.update(MENU.update_rects)
+    #MENU.update_rects = []
 #def draw_charselect():
 
-# MAPsss
-def map_init_noise(width, height):
-    map_gen = []
-    noise = libtcodpy.noise_new(2)
-    libtcodpy.noise_set_type(noise, libtcodpy.NOISE_SIMPLEX)
-    for x in range(0, width):
-        aux = []
-        for y in range(0, height):
-            if libtcodpy.noise_get(noise, [(x+1)/3, y/3]) > 0.6:
-                aux.append(Tile(False, True, False, 0, GAME.tiles.image_at((0, 0, 32, 32)), GAME.tiles.image_at((0, 32, 32, 32)))) # WALL
-            else:
-                aux.append(Tile(True, False, True, 0, GAME.tiles.image_at((32, 0, 32, 32)), GAME.tiles.image_at((32, 32, 32, 32)))) #F LOOR
-        map_gen.append(aux)
-    map_gen = map_set_borders(map_gen, width-1, height-1) # BORDERS
-    return map_gen
-def map_init_walk(width, height, floor_percent):
-    map_gen = [[game_content.t_cave_wall(i, j) for j in range(height)] for i in range(width)]
-    x = math.floor(width/2)
-    y = math.floor(height/2)
-    floor_left = math.floor(width * height * floor_percent)
-    while floor_left > 0:
-        if not map_gen[x][y].passable:
-            map_gen[x][y] = game_content.t_cave_floor(x, y)
-            floor_left -= 1
-        direction = random.randint(0, 1)
-        if direction == 0:
-            x += random.randint(-1,1)
-        else:
-            y += random.randint(-1,1)
-        if x >= width-4:
-            x -= 4
-        if x < 4:
-            x += 4
-        if y >= height-4:
-            y -= 4
-        if y < 4:
-            y += 4
-    map_gen = map_set_borders(map_gen, width-1, height-1)
-    return map_gen
 
 
 # EXECUTION

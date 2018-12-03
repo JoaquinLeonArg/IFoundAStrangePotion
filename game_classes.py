@@ -6,45 +6,6 @@ import libtcodpy
 pygame.init()
 global GAME, SCREEN
 
-class Window_Description:
-    def __init__(self):
-        self.content_surface = pygame.Surface((game_constants.DESCWINDOW_WIDTH, game_constants.DESCWINDOW_HEIGHT))
-        self.content_surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface = pygame.Surface((game_constants.DESCWINDOW_WIDTH, game_constants.DESCWINDOW_HEIGHT))
-        self.surface.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.reset()
-        self.index = 0
-        self.need_redraw = True
-        self.x = 0
-        self.y = 0
-    def updateInfo(self, icon_list, name, color, typename, content):
-        self.surface.fill(game_constants.COLOR_COLORKEY)
-        self.content_surface.fill(game_constants.COLOR_COLORKEY)
-        self.icon = [pygame.transform.scale2x(icon_list[i]) for i in range(len(icon_list))]
-        self.name = game_constants.FONT_PERFECTDOS.render(name, False, color)
-        self.typename = game_constants.FONT_PERFECTDOS_SMALL.render(typename, False, game_constants.COLOR_WHITE)
-        for lineIndex in range(len(content)):
-            xoffset = 0
-            for element in content[lineIndex]:
-                text = game_constants.FONT_PERFECTDOS.render(element[0], False, element[1])
-                self.surface.blit(text, (xoffset + 16, 96 + lineIndex*16))
-                xoffset += text.get_width()
-        self.index = 0
-        self.need_redraw = True
-    def update(self):
-        self.index = (self.index + 1) % len(self.icon)
-    def reset(self):
-        self.updateInfo([game_constants.SPRITE_NULL], '', game_constants.COLOR_WHITE, '', [])
-    def draw(self):
-        if self.need_redraw:
-            self.surface.blit(game_constants.SPRITE_DESCRIPTIONWINDOW, (0, 0))
-            self.surface.blit(self.content_surface, (0, 0))
-            self.surface.blit(self.name, (100, 24))
-            self.surface.blit(self.typename, (100, 44))
-            self.surface.blit(game_constants.SPRITE_BACK_68X68, (16, 16))
-            self.surface.blit(self.icon[0], (16, 16)) # 0 is a placeholder, meaning no animation is shown
-            self.need_redraw = False
-            GAME.update_rects.append(GAME.surface_windows.blit(self.surface, (self.x, self.y)))
 
 class MainMenu:
     def __init__(self):
@@ -67,6 +28,8 @@ class MainMenu:
         self.update_rects = []
 class Game:
     def __init__(self):
+        self.debug = True
+
         # Initialization of game structures
         self.log = []
         self.creatures = []
@@ -76,7 +39,6 @@ class Game:
         self.entities = []
         self.visualeffects = []
         self.visualactiveeffects = []
-        self.descriptionWindow = Window_Description()
         self.player = None
 
         # General
@@ -130,6 +92,11 @@ class Game:
         self.popup_position_x, self.popup_position_y = (game_constants.POPUP_IDLE_X, game_constants.POPUP_IDLE_Y)
         self.log_position_x, self.log_position_y = (game_constants.LOG_IDLE_X, game_constants.LOG_IDLE_Y)
 
+    def start(self, player, map):
+        self.player = player
+        self.generateMap(map)
+        self.creatures.append(GAME.player)
+
     def setPopup(self, message_lines, max_time):
         if not message_lines:
             self.popup_target_y = 0
@@ -175,7 +142,6 @@ class Game:
         for x in range(game_constants.MAP_WIDTH[self.level]):
             for y in range(game_constants.MAP_HEIGHT[self.level]):
                 libtcodpy.map_set_properties(self.light_map, x, y, self.map[x][y].transparent, self.map[x][y].passable)
-
 class Spritesheet(object):
     def __init__(self, filename):
         self.sheet = pygame.image.load(filename).convert()
@@ -197,26 +163,36 @@ class Spritesheet(object):
                 for x in range(image_count)]
         return self.images_at(tups, colorkey)
 class Tile:
-    def __init__(self, x, y, passable, transparent, sprite, destroy_func = None, walk_func = None):
+    def __init__(self, x, y, passable, transparent, sprite, behaviors = []):
         self.x = x
         self.y = y
         self.passable = passable
         self.transparent = transparent
-        self.destroy_func = destroy_func
-        self.walk_func = walk_func
+        self.behaviors = behaviors
         self.sprite = sprite.convert()
-        self.sprite_shadow = self.sprite.convert()
+        self.sprite.set_colorkey(game_constants.COLORS['colorkey'])
+        self.sprite_shadow = None
         self.discovered = False
         libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, self.passable, self.transparent)
+        self.generate_sprite_shadow()
+    def event(self, event_name, args):
+        for e in sorted(self.behaviors, key=lambda x: x.priority):
+            e.execute(event_name, self, args)
+    def generate_sprite_shadow(self):
+        self.sprite_shadow = self.sprite.convert()
         dark = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()), flags=pygame.SRCALPHA)
         dark.fill((50, 50, 50, 0))
         self.sprite_shadow.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    def onDestroy(self):
-        if self.destroy_func:
-            self.destroy_func(self)
-    def onWalk(self, creature):
-        if self.walk_func:
-            self.walk_func(self, creature)
+    def outline(self, side):
+        if side == 0:  # Left
+            pygame.draw.line(self.sprite, game_constants.COLORS['black'], (0, 0), (0, 31))
+        if side == 1:  # Up
+            pygame.draw.line(self.sprite, game_constants.COLORS['black'], (0, 0), (31, 0))
+        if side == 2:  # Right
+            pygame.draw.line(self.sprite, game_constants.COLORS['black'], (31, 0), (31, 31))
+        if side == 3:  # Down
+            pygame.draw.line(self.sprite, game_constants.COLORS['black'], (0, 31), (31, 31))
+
 class Camera:
     def __init__(self):
         self.x = 0
@@ -399,7 +375,6 @@ class Entity:
         GAME.entities.remove(self)
     def event(self, event_name, args = ()):
         for e in sorted(self.behaviors, key = lambda x: x.priority):
-            print(e, event_name, args)
             e.execute(event_name, self, args)
 class Creature(Entity):
     def __init__(self, x, y, tags, sprite_list, behaviors, stats, statmods = []):

@@ -18,6 +18,15 @@ DESCWINDOW_HEIGHT = 200
 ANIMATION_WAIT = 2
 ANIMATION_RATE = 5
 
+COLORS = {
+    'colorkey': (255, 0, 255),
+    'black': (0, 0, 0)
+}
+
+TILE_SPRITES = {
+    'cave_dirt': pygame.image.load('resources/graphics/tiles/floor_dirt.png')
+}
+
 COLOR_BLACK = (0, 0, 0)
 COLOR_LIGHTGRAY = (200, 200, 200)
 COLOR_GRAY = (150, 150, 150)
@@ -68,8 +77,8 @@ SPRITE_MARKER = pygame.image.load('resources/graphics/marker.png')
 SPRITE_BACK_68X68 = pygame.image.load('resources/graphics/back_68x68.png')
 SPRITE_NULL = pygame.Surface((0,0))
 
-MAP_WIDTH = [50, 60, 60, 50]
-MAP_HEIGHT = [50, 60, 70, 60]
+MAP_WIDTH = [100, 60, 60, 50]
+MAP_HEIGHT = [60, 60, 70, 60]
 
 BORDER_THICKNESS = 2
 

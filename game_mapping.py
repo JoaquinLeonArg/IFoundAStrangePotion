@@ -1,3 +1,4 @@
+import game_effects
 import game_content
 import game_constants
 import game_classes
@@ -10,15 +11,20 @@ import pygame
 pygame.init()
 
 #Tiles: {-2: Wall (Algorithm), -1: Floor (Algorithm), 0: Wall, 1: Floor, 2: Water, 3: Lava, 4: Glass, 5: Void}
-TILES = {
-    -2: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), game_content.stoneTileOnDestroy), # Wall (algorithm)
+TILES_DUNGEON = {
+    -2: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), [game_effects.StoneOnDestroy(1)]), # Wall (algorithm)
     -1: (True, True, pygame.image.load('resources/graphics/tiles/floor_dirt.png')), # Floor (algorithm)
-    0: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), game_content.stoneTileOnDestroy), # Wall
+    0: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), [game_effects.StoneOnDestroy(1)]), # Wall
     1: (True, True, pygame.image.load('resources/graphics/tiles/floor.png')), # Floor
     2: (True, True, pygame.image.load('resources/graphics/tiles/water.png')), # Water
     3: (True, True, pygame.image.load('resources/graphics/tiles/lava.png')), # Lava
     4: (True, True, pygame.image.load('resources/graphics/tiles/glass.png')), # Glass
     5: (True, True, pygame.image.load('resources/graphics/tiles/void.png')) # Void
+}
+
+TILES_FOREST = {
+    0: (True, True, pygame.image.load('resources/graphics/tiles/grass.png')), # Floor
+    1: (False, False, pygame.image.load('resources/graphics/tiles/tree.png'), [game_effects.StoneOnDestroy(1)]) # Wall
 }
 
 ENEMIES = [
@@ -36,6 +42,7 @@ def path_cost(_1, _2, x, y, array):
 def mapgen_dungeon(width, height):
     # Initialize structures.
     tiles = [[-2 for _ in range(width)] for _ in range(height)]
+    tiles_return = [[-2 for _ in range(width)] for _ in range(height)]
     items = []
     entities = []
     creatures = []
@@ -73,7 +80,7 @@ def mapgen_dungeon(width, height):
                             room_exits.append((x + i,  y + j, t))
                         if entity == 2:
                             room_exits.append((x + i, y + j, t))
-                            entities.append(game_content.n_door(x + i, y + j))
+                            entities.append(game_content.EntityDoor(x + i, y + j))
                             doors.append((x + i, y + j))
                         if entity == 3 or entity == 4:
                             creatures.append(random.choice(ENEMIES)(x + i, y + j))
@@ -97,13 +104,76 @@ def mapgen_dungeon(width, height):
 
     for i in range(len(tiles)):
         for j in range(len(tiles[i])):
-            tiles[i][j] = game_classes.Tile(i, j, *TILES[tiles[i][j]])
+            tiles_return[i][j] = game_classes.Tile(i, j, *TILES_DUNGEON[tiles[i][j]])
+            if len(tiles) - 1 > i > 0 and len(tiles[0]) - 1 > j > 0 and tiles[i][j] in [-2, 0]:
+                if tiles[i - 1][j] not in [-2, 0]:
+                    tiles_return[i][j].outline(0)
+                if tiles[i][j - 1] not in [-2, 0]:
+                    tiles_return[i][j].outline(1)
+                if tiles[i + 1][j] not in [-2, 0]:
+                    tiles_return[i][j].outline(2)
+                if tiles[i][j + 1] not in [-2, 0]:
+                    tiles_return[i][j].outline(3)
+                tiles_return[i][j].generate_sprite_shadow()
+
 
     for door in doors:
-        tiles[door[0]][door[1]].passable = False
-        tiles[door[0]][door[1]].transparent = False
+        tiles_return[door[0]][door[1]].passable = False
+        tiles_return[door[0]][door[1]].transparent = False
 
-    return tiles, items, entities, creatures, player_x, player_y
+    return tiles_return, items, entities, creatures, player_x, player_y
+
+def mapgen_woods(width, height):
+    # Initialize structures.
+    tiles = [[1 if random.random() < 0.44 else 0 for _ in range(height)] for _ in range(width)]
+    tiles_return = [[0 for _ in range(height)] for _ in range(width)]
+    items = []
+    entities = []
+    creatures = []
+
+    # Set starting position.
+    player_x, player_y = random.randrange(10, width - 10), random.randrange(10, height - 10)
+    new_tiles = tiles
+    for l in range(200):
+        for i in range(width):
+            for j in range(height):
+                if width - 2 > i > 3 and height - 2 > j > 3:  # Middle section of the map
+                    surrounding_walls = sum(tiles[x][y] for x in range(i - 1, i + 2) for y in range(j - 1, j + 2))
+                    surrounding_walls_bigger = sum(tiles[x][y] for x in range(i - 2, i + 3) for y in range(j - 2, j + 3))
+                else:  # Borders of the map
+                    surrounding_walls = 9
+                    surrounding_walls_bigger = 16
+                if surrounding_walls_bigger < 4:
+                    if random.random() < 0.5:
+                        n = 1
+                    else:
+                        n = 2
+                    for x in range(i - 2, i + 3):
+                        for y in range(j - 2, j + 3):
+                            if random.random() < 0.85:
+                                tiles[x][y] = n
+                elif surrounding_walls >= 6 and tiles[i][j] == 0:
+                    new_tiles[i][j] = 1
+                elif surrounding_walls <= 4 and tiles[i][j] == 1:
+                    new_tiles[i][j] = 0
+        if new_tiles == tiles:
+            break
+        else:
+            tiles = new_tiles
+
+    for i in range(width):
+        for j in range(height):
+            if tiles[i][j] != 2:
+                tiles_return[i][j] = game_classes.Tile(i, j, *TILES_FOREST[tiles[i][j]])
+            else:
+                tiles_return[i][j] = game_classes.Tile(i, j, *TILES_FOREST[0])
+                entities.append(game_content.EntityTallGrass(i, j))
+                tiles_return[i][j].transparent = False
+
+    return tiles_return, items, entities, creatures, player_x, player_y
+
+
+
 
 '''def map_set_borders(map_array, width, height):
     for x in range(0, width):

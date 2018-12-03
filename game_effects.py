@@ -1,4 +1,5 @@
 import game_constants
+import game_classes
 from abc import ABC
 
 global GAME
@@ -46,7 +47,7 @@ class drillMod(Effect):
     def execute(self, event, parent, args):
         if event == 'move':
             x_to, y_to = parent.x + args[0], parent.y + args[1]
-            GAME.map[x_to][y_to].onDestroy()
+            GAME.map[x_to][y_to].event('destroy', [])
     def getDescription(self):
         return ('Destroy walls on contact', game_constants.COLOR_POSITIVESTAT)
 
@@ -81,3 +82,9 @@ class minimumStat():
             return ('{}+ {}'.format(self.amount, self.stat_name), game_constants.COLOR_POSITIVESTAT)
         else:
             return ('{}+ {}'.format(self.amount, self.stat_name), game_constants.COLOR_NEGATIVESTAT)
+
+# TERRAIN BEHAVIOR #
+class StoneOnDestroy(Effect):
+    def execute(self, event_name, parent, _):
+        if event_name == 'destroy':
+            GAME.map[parent.x][parent.y] = game_classes.Tile(parent.x, parent.y, True, True, game_constants.TILE_SPRITES['cave_dirt'])

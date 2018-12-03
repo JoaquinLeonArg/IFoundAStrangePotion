@@ -34,18 +34,26 @@ def add_dicts(dict_base, dict_add):
     return new_dict
 
 # TEXT
+text_buffer = {}
 def draw_text(surface, text, x, y, font, text_color, shadow = True):
+    if (text, font, text_color) not in text_buffer.keys():
+        text_buffer[(text, font, text_color)] = font.render(text, False, text_color)
+    if (text, font, game_constants.COLOR_SHADOW) not in text_buffer.keys():
+        text_buffer[(text, font, game_constants.COLOR_SHADOW)] = font.render(text, False, game_constants.COLOR_SHADOW)
     rect1 = None
     if shadow:
-        rect1 = surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+1, y+1))
-    rect2 = surface.blit(font.render(text, False, text_color), (x, y))
+        rect1 = surface.blit(text_buffer[(text, font, game_constants.COLOR_SHADOW)], (x+1, y+1))
+    rect2 = surface.blit(text_buffer[(text, font, text_color)], (x, y))
     return rect1, rect2
+
 def draw_text_bg(surface, text, x, y, font, text_color, bg_color):
-    text_surface = font.render(text, False, text_color)
-    rect = pygame.draw.rect(surface, bg_color, pygame.Rect(x, y, text_surface.get_width(), text_surface.get_height()))
-    surface.blit(font.render(text, False, game_constants.COLOR_SHADOW), (x+1, y+1))
-    surface.blit(font.render(text, False, text_color), (x, y))
-    return rect
+    if (text, font, text_color) not in text_buffer.keys():
+        text_buffer[(text, font, text_color)] = font.render(text, False, text_color)
+    if (text, font, game_constants.COLOR_SHADOW) not in text_buffer.keys():
+        text_buffer[(text, font, game_constants.COLOR_SHADOW)] = font.render(text, False, game_constants.COLOR_SHADOW)
+    print(text_buffer)
+    surface.blit(text_buffer[(text, font, game_constants.COLOR_SHADOW)], (x+1, y+1))
+    surface.blit(text_buffer[(text, font, text_color)], (x, y))
 def wrap_text(text, max_length):
     string = ""
     result = []
