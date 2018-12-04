@@ -1,33 +1,14 @@
-import pygame
+from pyglet import *
 import game_constants
 import game_util
 import libtcodpy
 
-pygame.init()
 global GAME, SCREEN
 
-
-class MainMenu:
-    def __init__(self):
-        self.timer = 0
-
-        self.option = 0
-        self.characterNumber = 0
-
-        self.surface_logo = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
-        self.surface_options = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
-
-        self.surface_options.set_colorkey(game_constants.COLOR_COLORKEY)
-
-        self.optionsText = [game_constants.FONT_PERFECTDOS_LARGE.render('Start game', False, game_constants.COLOR_WHITE),
-                        game_constants.FONT_PERFECTDOS_LARGE.render('Options', False, game_constants.COLOR_WHITE),
-                        game_constants.FONT_PERFECTDOS_LARGE.render('Exit', False, game_constants.COLOR_WHITE)]
-
-        self.rd_img = True
-        self.rd_opt = True
-        self.update_rects = []
 class Game:
     def __init__(self):
+        self.btiles = graphics.Batch()
+        self.bentities = graphics.Batch()
         self.debug = True
 
         # Initialization of game structures
@@ -37,8 +18,8 @@ class Game:
         self.window = None
         self.items = []
         self.entities = []
-        self.visualeffects = []
-        self.visualactiveeffects = []
+        self.gfx = []
+        self.gfx_active = []
         self.player = None
 
         # General
@@ -52,32 +33,9 @@ class Game:
         self.map = None
         self.light_map = None
 
-        # Surfaces definition
-        self.surface_map = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_log = pygame.Surface((409, 133))
-        self.surface_status = pygame.Surface((699, 85 + 128)) # 85 for the main sprite, 128 for the extra message box that pops up from the bottom.
-        self.surface_windows = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-        self.surface_entities = pygame.Surface((game_constants.CAMERA_WIDTH*32, game_constants.CAMERA_HEIGHT*32))
-
-        # Colorkeys and surface initialization
-        #self.surface_effects.fill(game_constants.COLOR_COLORKEY)
-        #self.surface_effects.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface_status.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface_windows.set_colorkey(game_constants.COLOR_COLORKEY)
-        self.surface_windows.set_alpha(None)
-        self.surface_entities.fill(game_constants.COLOR_COLORKEY)
-        self.surface_entities.set_colorkey(game_constants.COLOR_COLORKEY)
-
         # Player Movement control
         self.player_moved = False
         self.movetimer = 10
-
-        # Redraw surfaces control
-        self.rd_log = True
-        self.rd_sta = True
-        self.rd_win = True
-        self.rd_min = True
-        self.update_rects = [] # Currently not used
 
         # Description Window
         self.draw_descriptionwindow = False
@@ -94,10 +52,10 @@ class Game:
 
     def start(self, player, map):
         self.player = player
-        self.generateMap(map)
+        self.generate_map(map)
         self.creatures.append(GAME.player)
 
-    def setPopup(self, message_lines, max_time):
+    def set_popup(self, message_lines, max_time):
         if not message_lines:
             self.popup_target_y = 0
             self.popup_time = -1
@@ -105,85 +63,60 @@ class Game:
             self.popup_target_y = len(message_lines)*12 + 20
             self.popup_time = max_time
             self.popup_lines = message_lines
-    def updatePopupTime(self):
+    def update_popuptime(self):
         if self.popup_time > 0:
             self.popup_time -= 1
         elif self.popup_time == 0:
-            self.setPopup(None, 0)
+            self.set_popup(None, 0)
             self.popup_time = -1
         if self.popup_time == -1 and self.popup_position_y == 0:
             self.popup_lines = []
-    def addLogMessage(self, message, color):
+    def add_log_message(self, message, color):
         for i in reversed(game_util.wrap_text(message, 46)):
             self.log.insert(0, (i, color))
-            self.rd_log = True
-    def entitiesExecuteTurn(self):
+    def entities_execute(self):
         for entity in self.entities + self.creatures + self.items:
             entity.event('turn', [entity])
             if libtcodpy.map_is_in_fov(self.light_map, entity.x, entity.y):
                 entity.last_seen_pos = (entity.x, entity.y)
                 entity.last_seen_image = entity.frame
                 entity.last_visible = entity.visible
-    def placeFree(self, x, y):
+    def place_free(self, x, y):
         for obj in self.creatures:
             if obj.x == x and obj.y == y:
                 return False
         return True
-    def updateOrder(self):
+    def update_order(self):
         self.entities.sort(key = lambda e: e.priority)
         self.creatures.sort(key = lambda c: c.priority)
-    def generateMap(self, gen_function):
+    def generate_map(self, gen_function):
         self.map, self.items, self.entities, self.creatures, self.player.x, self.player.y = gen_function(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
-        self.lightmapInit()
+        self.lightmap_init()
         self.creatures.append(self.player)
         game_util.map_light_update(self.light_map)
-    def lightmapInit(self):
+        self.level += 1
+    def lightmap_init(self):
         self.light_map = libtcodpy.map_new(game_constants.MAP_WIDTH[self.level], game_constants.MAP_HEIGHT[self.level])
         for x in range(game_constants.MAP_WIDTH[self.level]):
             for y in range(game_constants.MAP_HEIGHT[self.level]):
                 libtcodpy.map_set_properties(self.light_map, x, y, self.map[x][y].transparent, self.map[x][y].passable)
-class Spritesheet(object):
-    def __init__(self, filename):
-        self.sheet = pygame.image.load(filename).convert()
-    def image_at(self, rectangle, colorkey = None): # Load a specific image from a specific rectangle
-        rect = pygame.Rect(rectangle)
-        image = pygame.Surface(rect.size).convert()
-        image.blit(self.sheet, (0, 0), rect)
-        if colorkey is not None:
-            if colorkey is -1:
-                colorkey = image.get_at((0,0))
-            image.set_colorkey(colorkey, pygame.RLEACCEL)
-        return image
-    def images_at(self, rects, colorkey = None): # Load a whole bunch of images and return them as a list
-        return [self.image_at(rect, colorkey) for rect in rects]
-    def images_at_loop(self, rects, colorkey = None):
-        return self.images_at(rects, colorkey) + list(reversed(self.images_at(rects, colorkey)))
-    def load_strip(self, rect, image_count, colorkey = None): # Load a whole strip of images
-        tups = [(rect[0]+rect[2]*x, rect[1], rect[2], rect[3])
-                for x in range(image_count)]
-        return self.images_at(tups, colorkey)
+
 class Tile:
-    def __init__(self, x, y, passable, transparent, sprite, behaviors = []):
+    def __init__(self, x, y, passable, transparent, sprite_list, behaviors=[]):
         self.x = x
         self.y = y
+        self.sprite = sprite.Sprite(sprite_list, x=0, y=0, batch=GAME.btiles)
         self.passable = passable
         self.transparent = transparent
         self.behaviors = behaviors
-        self.sprite = sprite.convert()
-        self.sprite.set_colorkey(game_constants.COLORS['colorkey'])
         self.sprite_shadow = None
         self.discovered = False
         libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, self.passable, self.transparent)
-        self.generate_sprite_shadow()
+        # self.generate_sprite_shadow()
     def event(self, event_name, args):
         for e in sorted(self.behaviors, key=lambda x: x.priority):
             e.execute(event_name, self, args)
-    def generate_sprite_shadow(self):
-        self.sprite_shadow = self.sprite.convert()
-        dark = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()), flags=pygame.SRCALPHA)
-        dark.fill((50, 50, 50, 0))
-        self.sprite_shadow.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    def outline(self, side):
+    '''def outline(self, side):
         if side == 0:  # Left
             pygame.draw.line(self.sprite, game_constants.COLORS['black'], (0, 0), (0, 31))
         if side == 1:  # Up
@@ -191,7 +124,7 @@ class Tile:
         if side == 2:  # Right
             pygame.draw.line(self.sprite, game_constants.COLORS['black'], (31, 0), (31, 31))
         if side == 3:  # Down
-            pygame.draw.line(self.sprite, game_constants.COLORS['black'], (0, 31), (31, 31))
+            pygame.draw.line(self.sprite, game_constants.COLORS['black'], (0, 31), (31, 31))'''
 
 class Camera:
     def __init__(self):
@@ -199,7 +132,7 @@ class Camera:
         self.y = 0
     def update(self, x, y):
         self.x += (x-self.x-game_constants.CAMERA_WIDTH*16)*0.05
-        self.y += (y-self.y-game_constants.CAMERA_HEIGHT*16)*0.05
+        self.y += (game_constants.MAP_HEIGHT[GAME.level]*32-y-self.y-game_constants.CAMERA_HEIGHT*16)*0.05
         self.x = int(game_util.clamp(self.x, 0, game_constants.MAP_WIDTH[GAME.level]*32 - game_constants.CAMERA_WIDTH*32))
         self.y = int(game_util.clamp(self.y, 0, game_constants.MAP_HEIGHT[GAME.level]*32 - game_constants.CAMERA_HEIGHT*32))
 class VisualEffect:
@@ -207,13 +140,10 @@ class VisualEffect:
         self.x = x
         self.y = y
         self.visible = visible
-        self.images = images
+        self.sprite = sprite.Sprite(images[0])
         self.image = images[0]
     def update(self):
         pass
-    def draw(self):
-        if game_util.isinscreen(self.x*32, self.y*32) and self.visible:
-            SCREEN.blit(self.image, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y + 8))
     def destroy(self):
         if self in GAME.visualactiveeffects:
             GAME.visualactiveeffects.remove(self)
@@ -246,14 +176,21 @@ class LoopVisualEffect(VisualEffect):
             self.counter_next = 0
             self.frame = (self.frame + 1) % len(self.images)
             self.image = self.images[self.frame]
+    def destroy(self):
+        if self in GAME.gfx:
+            GAME.gfx.remove(self)
+        if self in GAME.gfx_active:
+            GAME.gfx_active.remove(self)
 class CreatureMoveVisualEffect(LoopVisualEffect):
     def __init__(self, creature, from_pos, to_pos, duration):
         super().__init__(creature.x, creature.y, True, creature.sprite_list[creature.frame:] + creature.sprite_list[:creature.frame], game_constants.ANIMATION_WAIT * 8)
         self.creature = creature
-        self.dx, self.dy = to_pos[0], to_pos[1]
+        self.dx, self.dy = to_pos[0]*32, to_pos[1]*32
         self.duration = duration
         self.current = 0
         self.creature.visible = False
+        self.x *= 32
+        self.y *= 32
     def update(self):
         if self.duration == 0:
             self.destroy()
@@ -346,31 +283,29 @@ class Entity:
         self.visible = True
         self.priority = 0
         self.sprite_list = sprite_list
-        self.sprite = self.sprite_list[0]
+        self.sprite = sprite.Sprite(self.sprite_list[0], x=0, y=0, batch=GAME.bentities)
         self.frame = 0
         self.counter_next = 0
-        self.sprites_shadow = [sprite.convert() for sprite in self.sprite_list]
+        '''self.sprites_shadow = [sprite.convert() for sprite in self.sprite_list]
         dark = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()), flags=pygame.SRCALPHA)
         dark.fill((50, 50, 50, 0))
         for sprite in self.sprites_shadow:
             sprite.set_colorkey(game_constants.COLOR_COLORKEY)
             sprite.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            sprite.set_colorkey((49, 0 ,49))
+            sprite.set_colorkey((49, 0 ,49))'''
         self.last_seen_pos = None
         self.last_seen_visible = True
         self.last_seen_image = self.frame
-    def draw(self):
-        if self.visible:
-            GAME.surface_entities.blit(self.sprite, (self.x*32 - GAME.camera.x, self.y*32 - GAME.camera.y))
     def draw_last_seen(self):
-        if self.last_seen_visible and self.last_seen_pos:
-            GAME.surface_entities.blit(self.sprites_shadow[self.last_seen_image], (self.last_seen_pos[0] * 32 - GAME.camera.x, self.last_seen_pos[1] * 32 - GAME.camera.y))
+        self.draw()
+        '''if self.last_seen_visible and self.last_seen_pos:
+            GAME.surface_entities.blit(self.sprites_shadow[self.last_seen_image], (self.last_seen_pos[0] * 32 - GAME.camera.x, self.last_seen_pos[1] * 32 - GAME.camera.y))'''
     def update_frame(self):
         self.counter_next += 1
         if self.counter_next == game_constants.ANIMATION_WAIT * 8:
             self.counter_next = 0
             self.frame = (self.frame + 1) % len(self.sprite_list)
-            self.sprite = self.sprite_list[self.frame]
+            #self.sprite = self.sprite_list[self.frame]
     def destroy(self):
         GAME.entities.remove(self)
     def event(self, event_name, args = ()):
@@ -383,16 +318,12 @@ class Creature(Entity):
         self.behaviors = behaviors
         self.stats = stats
         self.statmods = statmods
-        self.currentHitPoints = self.getStat('HitPoints')
-        self.currentMagicPoints = self.getStat('MagicPoints')
-    def isEnemy(self):
+        self.currentHitPoints = self.get_stat('HitPoints')
+        self.currentMagicPoints = self.get_stat('MagicPoints')
+    def is_enemy(self):
         return 'enemy' in self.tags
-    def draw(self):
-        super().draw()
-        if self.visible:
-            pygame.draw.rect(GAME.surface_entities, game_constants.COLOR_GREEN, ((self.x*32 - GAME.camera.x)+1, (self.y*32 - GAME.camera.y)+30, self.currentHitPoints/self.getStat('HitPoints')*(self.sprite.get_width()-1), 1))
 
-    def getStat(self, stat_name):
+    def get_stat(self, stat_name):
         statmods = sorted(self.statmods, key = lambda x: x.priority)
         amount = 0
         for mod in statmods:
@@ -430,22 +361,14 @@ class Player(Creature):
             elif key == 'right':
                 self.event('move', (1, 0))
                 game_util.map_light_update(GAME.light_map)
-    def canAttack(self, relativePosition):
+    def can_attack(self, relative_pos):
         if self.equipment[0] is None: # No weapon equipped
-            return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x + relativePosition[0], self.y + relativePosition[1]) and 'monster' in creature.tags]
-        return self.equipment[0].attackTargets(relativePosition) # Weapon range
-    def tilesAttack(self, relativePosition):
+            return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (self.x + relative_pos[0], self.y + relative_pos[1]) and 'monster' in creature.tags]
+        return self.equipment[0].attackTargets(relative_pos) # Weapon range
+    def tiles_attack(self, relative_pos):
         if self.equipment[0] is None: # No weapon equipped
-            return [(self.x + relativePosition[0], self.y + relativePosition[1])]
-        return self.equipment[0].attackTiles(relativePosition) # Weapon range
-
-
-    def getMaxCarry(self):
-        return 10 + self.stats['MaxCarry']
-    def getHungerDepletion(self):
-        return max(1, 4 + self.stats['HungerFlat'])
-    def getCurrentCarry(self):
-        return sum([item.size for item in self.inventory] + [item.size for item in self.equipment if item is not None])
+            return [(self.x + relative_pos[0], self.y + relative_pos[1])]
+        return self.equipment[0].attackTiles(relative_pos) # Weapon range
 class Monster(Creature):
     def __init__(self, x, y, tags, sprite_list, name, drops, behaviors, stats, statmods = []):
         super().__init__(x, y, tags, sprite_list, behaviors, stats, statmods)
@@ -493,16 +416,16 @@ class Equipment(Item):
             GAME.player.statmods.remove(stat)
         for mod in self.mods:
             GAME.player.behaviors.remove(mod)
-    def canEquip(self):
+    def can_equip(self):
         return all(requirement.execute(GAME.player) for requirement in self.requirements)
 class Weapon(Equipment):
     def __init__(self, x, y, name, rarity, size, flavor, stats, mods, requirements, tags, sprite_list, spriteattack_list):
         super().__init__(x, y, name, rarity, size, flavor, 0, stats, mods, requirements, tags, sprite_list)
         self.spriteattack_list = spriteattack_list
         self.itemType = 'weapon'
-    def attackTargets(self, relativePosition):
+    def attack_targets(self, relative_pos):
         pass
-    def attackTiles(self, relativePosition):
+    def attack_tiles(self, relative_pos):
         pass
 class Consumable(Item):
     def __init__(self, x, y, tags, sprite_list, name, color, size, flavor, effects, useCondition = [], charges = 1):
@@ -524,9 +447,9 @@ class Consumable(Item):
             if not condition.execute():
                 return False
         return True
-    def gotUsed(self):
+    def got_used(self):
         return self.used
-class ConsumableMap(Consumable):
+'''class ConsumableMap(Consumable):
     def __init__(self, x, y, tags, sprite_list, name, color, size, flavor, effects, initialTarget, maxRange, useCondition = [], charges = [], targetCondition = []):
         super().__init__(x, y,tags, sprite_list, name, color, size, flavor, effects, useCondition, charges)
         self.tags.remove('target_self')
@@ -545,29 +468,29 @@ class ConsumableMap(Consumable):
         for action in self.onUse:
             action.execute(x, y)
         if self.used:
-            GAME.player.inventory.remove(self)
+            GAME.player.inventory.remove(self)'''
 
 class ShortSword(Weapon):
-    def attackTargets(self, relativePosition):
-        return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition and 'monster' in creature.tags]
-    def attackTiles(self, relativePosition):
-        return [(GAME.player.x + relativePosition[0], GAME.player.y + relativePosition[1])]
+    def attack_targets(self, relative_pos):
+        return [creature for creature in GAME.creatures if creature is not self and (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relative_pos and 'monster' in creature.tags]
+    def attack_tiles(self, relative_pos):
+        return [(GAME.player.x + relative_pos[0], GAME.player.y + relative_pos[1])]
 class LongSword(Weapon):
-    def attackTargets(self, relativePosition): # TODO: Fix this behavior
-        if relativePosition[0] == 0:
-            return [creature for creature in GAME.creatures if creature is not self and creature.x in [GAME.player.x + 1, GAME.player.x, GAME.player.x - 1] and creature.y == GAME.player.y + relativePosition[1] and 'monster' in creature.tags]
-        elif relativePosition[1] == 0:
-            return [creature for creature in GAME.creatures if creature is not self and creature.x == GAME.player.x + relativePosition[0] and creature.y in [GAME.player.y + 1, GAME.player.y, GAME.player.y - 1] and 'monster' in creature.tags]
-    def attackTiles(self, relativePosition):
-        if relativePosition[0] == 0:
-            return [(GAME.player.x - 1, GAME.player.y + relativePosition[1]), (GAME.player.x, GAME.player.y + relativePosition[1]), (GAME.player.x + 1, GAME.player.y + relativePosition[1])]
-        elif relativePosition[1] == 0:
-            return [(GAME.player.x + relativePosition[0], GAME.player.y - 1), (GAME.player.x + relativePosition[0], GAME.player.y), (GAME.player.x + relativePosition[0], GAME.player.y + 1)]
+    def attack_targets(self, relative_pos): # TODO: Fix this behavior
+        if relative_pos[0] == 0:
+            return [creature for creature in GAME.creatures if creature is not self and creature.x in [GAME.player.x + 1, GAME.player.x, GAME.player.x - 1] and creature.y == GAME.player.y + relative_pos[1] and 'monster' in creature.tags]
+        elif relative_pos[1] == 0:
+            return [creature for creature in GAME.creatures if creature is not self and creature.x == GAME.player.x + relative_pos[0] and creature.y in [GAME.player.y + 1, GAME.player.y, GAME.player.y - 1] and 'monster' in creature.tags]
+    def attack_tiles(self, relative_pos):
+        if relative_pos[0] == 0:
+            return [(GAME.player.x - 1, GAME.player.y + relative_pos[1]), (GAME.player.x, GAME.player.y + relative_pos[1]), (GAME.player.x + 1, GAME.player.y + relative_pos[1])]
+        elif relative_pos[1] == 0:
+            return [(GAME.player.x + relative_pos[0], GAME.player.y - 1), (GAME.player.x + relative_pos[0], GAME.player.y), (GAME.player.x + relative_pos[0], GAME.player.y + 1)]
 class Spear(Weapon):
-    def attackTargets(self, relativePosition): # TODO: Check if this is working as intended
-        return [creature for creature in GAME.creatures if creature is not self and ((creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition or (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relativePosition*2) and 'monster' in creature.tags]
+    def attack_targets(self, relative_pos): # TODO: Check if this is working as intended
+        return [creature for creature in GAME.creatures if creature is not self and ((creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relative_pos or (creature.x, creature.y) == (GAME.player.x, GAME.player.y) + relative_pos*2) and 'monster' in creature.tags]
 
-class Potion:
+'''class Potion:
     def __init__(self, name, sprite_list, actions, conditions, startCharges, maxCharges, description):
         self.name = name
         self.sprite_list = sprite_list
@@ -580,22 +503,22 @@ class Potion:
         if self.charges > 0 and all([condition.execute() for condition in self.conditions]):
             for action in self.actions:
                 action.execute()
-            self.charges -= 1
+            self.charges -= 1'''
 
-class Spell:
+'''class Spell:
     def __init__(self, name, description, sprite_list, effects, costs, cd):
         self.name = name
         self.description = description
         self.sprite_list = sprite_list
         self.effects = effects
         self.costs = costs
-        self.cd = cd
+        self.cd = cd'''
 
 class Component:
     def __init__(self, parent):
         self.parent = parent
 class Skill:
-    def __init__(self, index, pos, name, description, sprite, move, req, maxRank):
+    def __init__(self, index, pos, name, description, sprite, move, req, max_rank):
         self.index = index
         self.x , self.y = pos
         self.name = name
@@ -603,12 +526,10 @@ class Skill:
         self.sprite = sprite
         self.move = move
         self.req = req
-        self.maxRank = maxRank
+        self.maxRank = max_rank
         self.rank = 0
-    def onBuy(self):
+    def on_buy(self):
         if self.maxRank != -1:
             self.rank += 1
-    def isMaxed(self):
+    def is_maxed(self):
         return self.rank == self.maxRank
-    def isNotMaxed(self):
-        return not self.isMaxed()

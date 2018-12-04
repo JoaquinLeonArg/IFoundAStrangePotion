@@ -1,3 +1,4 @@
+from pyglet import *
 import game_effects
 import game_content
 import game_constants
@@ -6,25 +7,22 @@ import game_parsers
 import game_util
 import random
 import libtcodpy
-import pygame
-
-pygame.init()
 
 #Tiles: {-2: Wall (Algorithm), -1: Floor (Algorithm), 0: Wall, 1: Floor, 2: Water, 3: Lava, 4: Glass, 5: Void}
 TILES_DUNGEON = {
-    -2: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), [game_effects.StoneOnDestroy(1)]), # Wall (algorithm)
-    -1: (True, True, pygame.image.load('resources/graphics/tiles/floor_dirt.png')), # Floor (algorithm)
-    0: (False, False, pygame.image.load('resources/graphics/tiles/wall.png'), [game_effects.StoneOnDestroy(1)]), # Wall
-    1: (True, True, pygame.image.load('resources/graphics/tiles/floor.png')), # Floor
-    2: (True, True, pygame.image.load('resources/graphics/tiles/water.png')), # Water
-    3: (True, True, pygame.image.load('resources/graphics/tiles/lava.png')), # Lava
-    4: (True, True, pygame.image.load('resources/graphics/tiles/glass.png')), # Glass
-    5: (True, True, pygame.image.load('resources/graphics/tiles/void.png')) # Void
+    -2: (False, False, resource.image('resources/graphics/tiles/wall.png'), [game_effects.StoneOnDestroy(1)]), # Wall (algorithm)
+    -1: (True, True, resource.image('resources/graphics/tiles/floor_dirt.png')), # Floor (algorithm)
+    0: (False, False, resource.image('resources/graphics/tiles/wall.png'), [game_effects.StoneOnDestroy(1)]), # Wall
+    1: (True, True, resource.image('resources/graphics/tiles/floor.png')), # Floor
+    2: (True, True, resource.image('resources/graphics/tiles/water.png')), # Water
+    3: (True, True, resource.image('resources/graphics/tiles/lava.png')), # Lava
+    4: (True, True, resource.image('resources/graphics/tiles/glass.png')), # Glass
+    5: (True, True, resource.image('resources/graphics/tiles/void.png')) # Void
 }
 
 TILES_FOREST = {
-    0: (True, True, pygame.image.load('resources/graphics/tiles/grass.png')), # Floor
-    1: (False, False, pygame.image.load('resources/graphics/tiles/tree.png'), [game_effects.StoneOnDestroy(1)]) # Wall
+    0: (True, True, resource.image('resources/graphics/tiles/grass.png')), # Floor
+    1: (False, False, resource.image('resources/graphics/tiles/tree.png'), [game_effects.StoneOnDestroy(1)]) # Wall
 }
 
 ENEMIES = [

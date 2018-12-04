@@ -49,7 +49,7 @@ def parse_rooms():
     return items
 
 
-def get_animation(filename, repeat = False, size = (32, 32)):
+'''def get_animation(filename, repeat = False, size = (32, 32)):
     image = pygame.image.load(filename).convert()
     frame_qty = int(image.get_width()/size[0])
     frames = [pygame.Surface((size[0], size[1])).convert() for _ in range(frame_qty)]
@@ -65,7 +65,7 @@ def get_equipment(item_name):
 def get_weapon(item_name):
     return next(i for i in weapons if i[0] == item_name)
 def get_room(boss = False):
-    return random.choice([room for room in rooms if room['isBossRoom'] is boss])
+    return random.choice([room for room in rooms if room['isBossRoom'] is boss])'''
 
 # equipment = parse_equipment()
 # weapons = parse_weapons()

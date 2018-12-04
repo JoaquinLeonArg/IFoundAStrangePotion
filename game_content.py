@@ -3,14 +3,10 @@ import game_constants
 import game_parsers
 import game_mapping
 import game_effects
-import random
 import math
 import game_util
-import pygame
 import libtcodpy
 import sys
-
-pygame.init()
 
 GAME = None
 
@@ -463,8 +459,8 @@ class BehaviorPlayerBase:
         if event == 'move':
             GAME.movetimer = 8
             dx, dy = (args[0], args[1])
-            targets = parent.canAttack((dx, dy))
-            tiles = parent.tilesAttack((dx, dy))
+            targets = parent.can_attack((dx, dy))
+            tiles = parent.tiles_attack((dx, dy))
             if targets:
                 parent.event('attack', args = (targets, tiles))
                 GAME.action = 'attack'
@@ -478,10 +474,10 @@ class BehaviorPlayerBase:
                         entity.event('walk', [])
                     elif 'exit' in entity.tags:
                         GAME.level += 1
-                        GAME.generateMap(game_mapping.mapgen_dungeon(100, 100))
-            if GAME.placeFree(parent.x + dx, parent.y + dy): # Movement to a free tile.
+                        GAME.generate_map(game_mapping.mapgen_dungeon(100, 100))
+            if GAME.place_free(parent.x + dx, parent.y + dy): # Movement to a free tile.
                 if GAME.map[parent.x + dx][parent.y + dy].passable:
-                    GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
+                    GAME.gfx.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
                     parent.x += dx
                     parent.y += dy
                     GAME.action = 'move'
@@ -502,7 +498,6 @@ class BehaviorPlayerBase:
             else:
                 parent.currentHitPoints -= amount
         elif event == 'die':
-            pygame.quit()
             sys.exit()
 
 
@@ -566,8 +561,8 @@ def c_creature_in_location(x, y):
 # ENTITIES
 class EntityDoor(game_classes.Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, ['openable', 'door', 'impassable'], game_parsers.get_animation('resources/graphics/entities/door_closed.png'))
-        self.sprite_open = game_parsers.get_animation('resources/graphics/entities/door_open.png')
+        super().__init__(x, y, ['openable', 'door', 'impassable'], game_constants.SPRITES['door'])
+        self.sprite_open = game_constants.SPRITES['door']
         self.isOpen = False
 
     def event(self, event_name, args):
@@ -591,28 +586,28 @@ class EntityDoor(game_classes.Entity):
         pass
 class EntityTallGrass(game_classes.Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, ['walkable'], game_parsers.get_animation('resources/graphics/entities/tall_grass.png'))
-    def event(self, event_name, args):
+        super().__init__(x, y, ['walkable'], game_constants.SPRITES['tall_grass'])
+    def event(self, event_name, _):
         if event_name == 'walk':
-            self.sprite_list = game_parsers.get_animation('resources/graphics/entities/tall_grass_destroyed.png')
+            self.sprite_list = game_constants.SPRITES['tall_grass_destroyed']
             GAME.map[self.x][self.y].transparent = True
             libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, True, True)
             game_util.map_light_update(GAME.light_map)
 
 def n_exit(x, y):
-    return game_classes.Entity(x, y, ['exit'], [game_parsers.get_animation('resources/graphics/entities/door_open.png')])
+    return game_classes.Entity(x, y, ['exit'], game_constants.SPRITES['door'])
 
 
 # MONSTERS
 def m_slime(x, y):
-    return game_classes.Monster(x, y, [], game_parsers.get_animation('resources/graphics/entities/slime.png'), 'Slime', [], [(BehaviorMonsterBase(50))], slime_stats())
+    return game_classes.Monster(x, y, [], game_constants.SPRITES['slime'], 'Slime', [], [(BehaviorMonsterBase(50))], slime_stats())
 
 
 # PLAYABLE CHARACTERS
 def p_normal(x, y):
         return game_classes.Player(x, y,
-                                   sprite_list=game_parsers.get_animation('resources/graphics/entities/player.png', repeat=True),
-                                   portrait_list=[pygame.Surface((32, 32))],
+                                   sprite_list=game_constants.SPRITES['player'],
+                                   portrait_list=[],
                                    stats=player_basic_stats(),
                                    equipment=[None for _ in range(7)],
                                    inventory=[drill(0, 0) for _ in range(20)],
@@ -666,7 +661,7 @@ def drill(x, y):
                                   [game_effects.drillMod(10)],
                                   [game_effects.minimumStat('PhyAttack', 1)],
                                   ['drill'],
-                                  game_parsers.get_animation('resources/graphics/equipment/drill1.png', repeat=True),
+                                  game_constants.SPRITES['door_closed'],
                                   [])
 
 

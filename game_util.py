@@ -1,5 +1,5 @@
 import math
-import pygame
+from pyglet.resource import *
 import game_constants
 import libtcodpy
 
@@ -68,3 +68,6 @@ def wrap_text(text, max_length):
 # OTHER
 def map_light_update(light_map):
     libtcodpy.map_compute_fov(light_map, GAME.player.x, GAME.player.y, game_constants.LIGHT_RADIUS, True, libtcodpy.FOV_DIAMOND)
+def anchor_image(img):
+    img.anchor_y -= img.height
+    return img

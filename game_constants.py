@@ -1,6 +1,4 @@
-import pygame
-
-pygame.init()
+from pyglet import *
 
 WINDOW_WIDTH = 1280 # NATIVE RESOLUTION, DO NOT TOUCH!
 WINDOW_HEIGHT = 720
@@ -24,7 +22,7 @@ COLORS = {
 }
 
 TILE_SPRITES = {
-    'cave_dirt': pygame.image.load('resources/graphics/tiles/floor_dirt.png')
+    'cave_dirt': resource.image('resources/graphics/tiles/floor_dirt.png')
 }
 
 COLOR_BLACK = (0, 0, 0)
@@ -58,24 +56,31 @@ COLOR_NEGATIVESTAT = (200, 100, 100)
 
 COLOR_COLORKEY = (255, 0, 255)
 
-SPRITE_PLAYER = pygame.image.load('resources/player2.png')
-SPRITE_ENEMY_SLIME = pygame.image.load('resources/enemy_slime.png')
-SPRITE_TITLE = pygame.image.load('resources/title.png')
-SPRITE_INVENTORYWINDOW = pygame.image.load('resources/graphics/ui/ui_inventory.png')
-SPRITE_EQUIPMENTWINDOW = pygame.image.load('resources/graphics/ui/ui_equipment.png')
-SPRITE_OPTIONSWINDOW = pygame.image.load('resources/graphics/ui/ui_options.png')
-SPRITE_STATUS = pygame.image.load('resources/graphics/ui/ui_status.png')
-SPRITE_SKILLTREE = pygame.image.load('resources/graphics/skilltree.png')
-SPRITE_TRADEWINDOW = pygame.image.load('resources/graphics/window_trade.png')
-SPRITE_LOG = pygame.image.load('resources/graphics/ui/ui_log.png')
-SPRITE_POPUP = pygame.image.load('resources/graphics/ui/ui_popup.png')
-SPRITE_ITEMLIST = pygame.image.load('resources/graphics/ui/ui_itemlist.png')
-SPRITE_INVENTORYDESCRIPTION = pygame.image.load('resources/graphics/ui/ui_inventorydescription.png')
+SPRITES = {
+    'player': [resource.image('resources/graphics/entities/player.png')],
+    'door_closed': [resource.image('resources/graphics/entities/door_closed.png')],
+    'door_open': [resource.image('resources/graphics/entities/door_open.png')],
+    'tall_grass': [resource.image('resources/graphics/entities/tall_grass.png')],
+    'tall_grass_destroyed': [resource.image('resources/graphics/entities/tall_grass_destroyed.png')]
+}
 
-SPRITE_MARKER = pygame.image.load('resources/graphics/marker.png')
+SPRITE_PLAYER = resource.image('resources/player2.png')
+SPRITE_ENEMY_SLIME = resource.image('resources/enemy_slime.png')
+SPRITE_TITLE = resource.image('resources/title.png')
+SPRITE_INVENTORYWINDOW = resource.image('resources/graphics/ui/ui_inventory.png')
+SPRITE_EQUIPMENTWINDOW = resource.image('resources/graphics/ui/ui_equipment.png')
+SPRITE_OPTIONSWINDOW = resource.image('resources/graphics/ui/ui_options.png')
+SPRITE_STATUS = resource.image('resources/graphics/ui/ui_status.png')
+SPRITE_SKILLTREE = resource.image('resources/graphics/skilltree.png')
+SPRITE_TRADEWINDOW = resource.image('resources/graphics/window_trade.png')
+SPRITE_LOG = resource.image('resources/graphics/ui/ui_log.png')
+SPRITE_POPUP = resource.image('resources/graphics/ui/ui_popup.png')
+SPRITE_ITEMLIST = resource.image('resources/graphics/ui/ui_itemlist.png')
+SPRITE_INVENTORYDESCRIPTION = resource.image('resources/graphics/ui/ui_inventorydescription.png')
 
-SPRITE_BACK_68X68 = pygame.image.load('resources/graphics/back_68x68.png')
-SPRITE_NULL = pygame.Surface((0,0))
+SPRITE_MARKER = resource.image('resources/graphics/marker.png')
+
+SPRITE_BACK_68X68 = resource.image('resources/graphics/back_68x68.png')
 
 MAP_WIDTH = [100, 60, 60, 50]
 MAP_HEIGHT = [60, 60, 70, 60]
@@ -88,33 +93,27 @@ CAMERA_HEIGHT = 22
 LIGHT_RADIUS = 8
 MAX_HUNGER = 1000
 
-FONT_PERFECTDOS = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 16)
-FONT_PERFECTDOS_SMALL = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 14)
-FONT_PERFECTDOS_MEDIUM = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 20)
-FONT_PERFECTDOS_LARGE = pygame.font.Font('resources/Perfect DOS VGA 437 Win.ttf', 32)
-
 LOG_MAX_LENGTH = 8
 LOG_MAX_LENGTH_LONG = 20
 LOG_WIDTH = 400
-
 
 KEY_MAPUP = 264 #8
 KEY_MAPDOWN = 258 #2
 KEY_MAPLEFT = 260 #4
 KEY_MAPRIGHT = 262 #6
 
-KEY_LOG = pygame.K_l
-KEY_SEARCH = pygame.K_f
-KEY_INVENTORY = pygame.K_i
-KEY_EQUIPMENT = pygame.K_e
-KEY_STATS = pygame.K_z
-KEY_STATUS = pygame.K_t
-KEY_SKILLTREE = pygame.K_k
-KEY_MINIMAP = pygame.K_m
-KEY_PASSTURN = pygame.K_w
+KEY_LOG = window.key.L
+KEY_SEARCH = window.key.F
+KEY_INVENTORY = window.key.I
+KEY_EQUIPMENT = window.key.E
+KEY_STATS = window.key.Z
+KEY_STATUS = window.key.T
+KEY_SKILLTREE = window.key.K
+KEY_MINIMAP = window.key.M
+KEY_PASSTURN = window.key.W
 
-KEY_USE = pygame.K_s
-KEY_CANCEL = pygame.K_c
+KEY_USE = window.key.S
+KEY_CANCEL = window.key.C
 
 TEXT_ONMAP = [('I:', 'inventory'), ('E:', 'equipment'), ('F:', 'search'), ('T:', 'status'), ('Z', 'stats')]
 TEXT_ONINVENTORY = [('S:', 'select'), ('C:', 'go back')]
@@ -178,13 +177,13 @@ BASE_STATS = {
 }
 
 # Surfaces positions
-STATUS_IDLE_X = (CAMERA_WIDTH*32 - SPRITE_STATUS.get_width()) // 2
-STATUS_IDLE_Y = CAMERA_HEIGHT*32 - SPRITE_STATUS.get_height() - 128
+STATUS_IDLE_X = (CAMERA_WIDTH*32 - SPRITE_STATUS.width) // 2
+STATUS_IDLE_Y = CAMERA_HEIGHT*32 - SPRITE_STATUS.height - 128
 STATUS_HIDDEN_X = STATUS_IDLE_X
 STATUS_HIDDEN_Y = CAMERA_HEIGHT*32
 POPUP_IDLE_X = 220
 POPUP_IDLE_Y = 0
-LOG_IDLE_X = CAMERA_WIDTH * 32 - SPRITE_LOG.get_width() - 24
+LOG_IDLE_X = CAMERA_WIDTH * 32 - SPRITE_LOG.width - 24
 LOG_IDLE_Y = 24
 LOG_HIDDEN_X = LOG_IDLE_X
 LOG_HIDDEN_Y = 0 # TODO Fix log reappearing slowly because of negative Y position

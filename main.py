@@ -1,185 +1,153 @@
 # IMPORT
-import pygame
+from pyglet import *
 import libtcodpy
-import random
 import math
 import game_util
 import game_constants
 import game_mapping
 import game_effects
+import game_classes
+import game_content
 import sys
 
 # GAME
-def game_init():
-    global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
-    pygame.init()
-    GAMEWINDOW = pygame.display.set_mode((game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), pygame.DOUBLEBUF|pygame.HWSURFACE|pygame.FULLSCREEN)
+global STATE, MENU, GAME, TILES, SCREEN, GAMEWINDOW, CLOCK, game_classes, game_content
+SCREEN = window.Window(game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT)
 
-    import game_classes
-    import game_content
+fps_display = window.FPSDisplay(SCREEN)
 
-    GAME = game_classes.Game()
-    MENU = game_classes.MainMenu()
-    CLOCK = pygame.time.Clock()
-    SCREEN = pygame.Surface((game_constants.WINDOW_WIDTH, game_constants.WINDOW_HEIGHT))
-    STATE = 0
+GAME = game_classes.Game()
+game_classes.GAME = GAME
+game_classes.SCREEN = SCREEN
+game_content.GAME = GAME
+game_content.SCREEN = SCREEN
+game_util.GAME = GAME
+game_util.SCREEN = SCREEN
+game_mapping.SCREEN = SCREEN
+game_effects.GAME = GAME
 
-    pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
+def game_loop(dt):
+    fps_display.update()
+    GAME.action = 'none'
+    if GAME.movetimer > 0:
+        GAME.movetimer -= 1
+    GAME.camera.update(GAME.player.x * 32, GAME.player.y * 32)
+    for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
+        entity.update_frame()
+    for gfx in GAME.gfx + GAME.gfx_active:
+        gfx.update()
+    if GAME.action != 'none':
+        GAME.updateOrder()
+        GAME.entitiesExecuteTurn()
+        GAME.turn_counter += 1
 
-    pygame.display.set_caption('I found a strange potion')
-
-    game_classes.GAME = GAME
-    game_classes.SCREEN = SCREEN
-    game_content.GAME = GAME
-    game_content.SCREEN = SCREEN
-    game_util.GAME = GAME
-    game_util.SCREEN = SCREEN
-    game_mapping.SCREEN = SCREEN
-    game_effects.GAME = GAME
-
-def game_loop():
-    while True:
-        if STATE == 0:
-            draw_menu()
-            menu_input()
-        elif STATE == 9:
-            GAME.action = 'none'
-            if GAME.movetimer > 0:
-                GAME.movetimer -= 1
-            GAME.camera.update(GAME.player.x * 32, GAME.player.y * 32)
-            game_input()
-            for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
-                entity.update_frame()
-            if GAME.action != 'none':
-                GAME.updateOrder()
-                GAME.entitiesExecuteTurn()
-                GAME.turn_counter += 1
-            draw_game()
-        CLOCK.tick(60)
-def game_input():
-    events = pygame.event.get()
-    keystates = pygame.key.get_pressed()
-
-    if not GAME.visualactiveeffects and GAME.movetimer is 0 and GAME.player.active:
-        if keystates[pygame.K_UP]:
+@SCREEN.event
+def on_key_press(symbol, _):
+    if not GAME.gfx_active and not GAME.movetimer and GAME.player.active:
+        if symbol == window.key.UP:
             GAME.player.input('up')
-        elif keystates[pygame.K_DOWN]:
+        elif symbol == window.key.DOWN:
             GAME.player.input('down')
-        elif keystates[pygame.K_LEFT]:
+        elif symbol == window.key.LEFT:
             GAME.player.input('left')
-        elif keystates[pygame.K_RIGHT]:
+        elif symbol == window.key.RIGHT:
             GAME.player.input('right')
-        elif keystates[game_constants.KEY_PASSTURN]:
+        elif symbol == game_constants.KEY_PASSTURN:
             GAME.player.input('pass')
 
-        if keystates[game_constants.KEY_MAPUP]:
+        if symbol == game_constants.KEY_MAPUP:
             GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16, GAME.camera.y + game_constants.CAMERA_HEIGHT*16 - 128)
-        elif keystates[game_constants.KEY_MAPDOWN]:
+        elif symbol == game_constants.KEY_MAPDOWN:
             GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16, GAME.camera.y + game_constants.CAMERA_HEIGHT*16 + 128)
-        elif keystates[game_constants.KEY_MAPLEFT]:
+        elif symbol == game_constants.KEY_MAPLEFT:
             GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16 - 128, GAME.camera.y + game_constants.CAMERA_HEIGHT*16)
-        elif keystates[game_constants.KEY_MAPRIGHT]:
+        elif symbol == game_constants.KEY_MAPRIGHT:
             GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16 + 128, GAME.camera.y + game_constants.CAMERA_HEIGHT*16)
 
-    for event in events:
-        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
-            pygame.quit()
-            sys.exit()
+    if symbol == window.key.ESCAPE:
+        app.exit()
 
-        if event.type == pygame.KEYDOWN and not GAME.visualactiveeffects:
-
-                if event.key == game_constants.KEY_INVENTORY and not GAME.window:
+        if not GAME.visualactiveeffects:
+                if symbol == game_constants.KEY_INVENTORY and not GAME.window:
                     GAME.window = game_content.WindowPlayerInventory()
-                elif event.key == game_constants.KEY_SEARCH and not GAME.window:
+                elif symbol == game_constants.KEY_SEARCH and not GAME.window:
                     if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
                         GAME.window = game_content.WindowSearchInventory()
                     else:
                         GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
-                elif event.key == game_constants.KEY_STATUS and not GAME.window:
+                elif symbol == game_constants.KEY_STATUS and not GAME.window:
                     GAME.window= game_content.WindowStatus()
-                elif event.key == game_constants.KEY_STATS and not GAME.window:
+                elif symbol == game_constants.KEY_STATS and not GAME.window:
                     GAME.window = game_content.WindowStats()
-                elif event.key == game_constants.KEY_EQUIPMENT and not GAME.window:
+                elif symbol == game_constants.KEY_EQUIPMENT and not GAME.window:
                     GAME.window = game_content.WindowEquipment()
-                elif event.key == game_constants.KEY_SKILLTREE and not GAME.window:
+                elif symbol == game_constants.KEY_SKILLTREE and not GAME.window:
                     GAME.window = game_content.WindowSkillTree()
 
                 if GAME.window:
-                    if event.key == pygame.K_LEFT:
+                    if symbol == window.key.LEFT:
                         GAME.window.input('left')
-                    elif event.key == pygame.K_RIGHT:
+                    elif symbol == window.key.RIGHT:
                         GAME.window.input('right')
-                    elif event.key == pygame.K_UP:
+                    elif symbol == window.key.UP:
                         GAME.window.input('up')
-                    elif event.key == pygame.K_DOWN:
+                    elif symbol == window.key.DOWN:
                         GAME.window.input('down')
-                    elif event.key == game_constants.KEY_USE:
+                    elif symbol == game_constants.KEY_USE:
                         GAME.window.input('use')
-                    elif event.key == game_constants.KEY_CANCEL:
+                    elif symbol == game_constants.KEY_CANCEL:
                         GAME.window.input('cancel')
 
-                if event.key == game_constants.KEY_LOG:
+                if symbol == game_constants.KEY_LOG:
                     GAME.long_log = not GAME.long_log
-                if event.key == game_constants.KEY_MINIMAP:
+                if symbol == game_constants.KEY_MINIMAP:
                     GAME.show_minimap = (GAME.show_minimap + 1) % 3
-def menu_input():
-    global STATE
-    global MENU
-    global GAME
-    events = pygame.event.get();
-    for event in events:
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        if STATE == 0:
-            if event.type == pygame.KEYDOWN:
-                MENU.rd_opt = True
-                if event.key == pygame.K_UP:
-                    MENU.option =  (MENU.option - 1) % 3
-                    MENU.update = True
-                    return
-                if event.key == pygame.K_DOWN:
-                    MENU.option =  (MENU.option + 1) % 3
-                    MENU.update = True
-                    return
-                if event.key == game_constants.KEY_USE:
-                    if MENU.option == 0:
-
-                        STATE = 9
-                        GAME.start(game_content.p_normal(game_constants.MAP_WIDTH[0] // 2, game_constants.MAP_HEIGHT[0] // 2), game_mapping.mapgen_woods)
-                    return
-                if event.key == game_constants.KEY_CANCEL:
-                    MENU.option =  (MENU.option + 1) % 3
-                    MENU.update = True
-                    return
 
 # DRAW
-def draw_game():
-    draw_log()
+def in_camera(x, y):
+    return (GAME.camera.x // 32) < x < (GAME.camera.x // 32) + game_constants.CAMERA_WIDTH and (GAME.camera.y // 32) < y < (GAME.camera.y // 32) + game_constants.CAMERA_HEIGHT
+def grid_to_camera(x, y):
+    return x*32 - GAME.camera.x, game_constants.MAP_HEIGHT[GAME.level]*32 - y*32 - GAME.camera.y
+def absolute_to_camera(x, y):
+    return x - GAME.camera.x, game_constants.MAP_HEIGHT[GAME.level] * 32 - y - GAME.camera.y
+
+@SCREEN.event
+def on_draw():
+    SCREEN.clear()
+    if not GAME.level:
+        return
+
+    # Draw Tiles
+    for i in range(len(GAME.map)):
+        for j in range(len(GAME.map[0])):
+            if libtcodpy.map_is_in_fov(GAME.light_map, i, j):
+                GAME.map[i][j].sprite.position = grid_to_camera(GAME.map[i][j].x, GAME.map[i][j].y)
+                GAME.map[i][j].sprite.batch = GAME.btiles
+            else:
+                GAME.map[i][j].sprite.batch = None
+    # Draw Entities + Creatures
+    for e in GAME.entities + GAME.creatures:
+        if libtcodpy.map_is_in_fov(GAME.light_map, e.x, e.y) and e.visible:
+            e.sprite.position = grid_to_camera(e.x, e.y)
+            e.sprite.batch = GAME.bentities
+        else:
+            e.sprite.batch = None
+
+    # Draw
+    GAME.btiles.draw()
+    GAME.bentities.draw()
+    for gfx in GAME.gfx + GAME.gfx_active:
+        gfx.sprite.position = absolute_to_camera(gfx.x, gfx.y)
+        gfx.sprite.draw()
+    fps_display.draw()
+
+    '''draw_log()
     draw_status()
     draw_map()
     draw_entities()
     draw_windows()
-
-    # BLIT ALL SURFACES INTO THE MAIN SURFACE
-    for surface in [GAME.surface_map, GAME.surface_entities, GAME.surface_windows]: # DRAW ALL SURFACES AT (0, 8)
-        SCREEN.blit(surface, (0, 8))
-    draw_effects() # THEY ARE DRAWN EVERY FRAME BECAUSE THEY ARE ANIMATED
-    SCREEN.blit(GAME.surface_log, (GAME.log_position_x, GAME.log_position_y))
-    SCREEN.blit(GAME.surface_status, (GAME.status_position_x, GAME.status_position_y)) # SURFACE_STATUS NEEDS TO BE DRAWN IN A DIFFERENT POSITION
-
-    draw_minimap()
-
-    # FOR DEBUG PURPOSES
-    #GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'X: ' + str(GAME.player.x) + '   Y: ' + str(GAME.player.y), 10, 30, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
-    GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 48, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
-    #GAME.update_rects.append(game_util.draw_text_bg(SCREEN, 'TURN: ' + str(GAME.turn_counter), 10, 66, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
-
-    SCREEN.fill((0, 0, 0), (0, 0, game_constants.CAMERA_WIDTH * 32, 8))
-    SCREEN.fill((0, 0, 0), (0, game_constants.CAMERA_HEIGHT * 32 + 8, game_constants.CAMERA_WIDTH * 32, 8))
-
-    pygame.display.flip()
-    pygame.transform.scale(SCREEN, (game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), GAMEWINDOW)
+    draw_effects()
+    draw_minimap()'''
 
 def draw_map():
     GAME.update_rects.append(GAME.surface_map.fill(game_constants.COLOR_BLACK))
@@ -190,25 +158,23 @@ def draw_map():
                 GAME.map[x][y].discovered = True
             elif GAME.map[x][y].discovered:
                 GAME.surface_map.blit(GAME.map[x][y].sprite_shadow, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
-    pygame.draw.rect(GAME.surface_map, game_constants.COLOR_BORDER, pygame.Rect(game_constants.BORDER_THICKNESS, game_constants.BORDER_THICKNESS, game_constants.CAMERA_WIDTH*32-game_constants.BORDER_THICKNESS*2, game_constants.CAMERA_HEIGHT*32-game_constants.BORDER_THICKNESS*2), game_constants.BORDER_THICKNESS*2)
 def draw_minimap():
-    if GAME.window:
-        return
-    minimap_ratio = (GAME.show_minimap + 1)*2
-    minimap_x = 10
-    minimap_y = game_constants.CAMERA_HEIGHT*32-len(GAME.map[0])*minimap_ratio-100
-    minimap_width = len(GAME.map)*minimap_ratio
-    minimap_height = len(GAME.map[0])*minimap_ratio
-    if GAME.show_minimap != 2:
-        pygame.draw.rect(SCREEN, game_constants.COLOR_DARKGRAY, pygame.Rect(minimap_x, minimap_y, minimap_width, minimap_height))
-        for x in range(len(GAME.map)):
-            for y in range(len(GAME.map[x])):
-                if GAME.map[x][y].discovered:
-                    if GAME.map[x][y].passable:
-                        pygame.draw.rect(SCREEN, game_constants.COLOR_GRAY, pygame.Rect(minimap_x+x*minimap_ratio, minimap_y+y*minimap_ratio, minimap_ratio, minimap_ratio))
-                    else:
-                        pygame.draw.rect(SCREEN, game_constants.COLOR_WHITE, pygame.Rect(minimap_x+x*minimap_ratio, minimap_y+y*minimap_ratio, minimap_ratio, minimap_ratio))
-        pygame.draw.rect(SCREEN, game_constants.COLOR_YELLOW, pygame.Rect(minimap_x+GAME.player.x*minimap_ratio, minimap_y+GAME.player.y*minimap_ratio, minimap_ratio, minimap_ratio))
+    if not GAME.window:
+        minimap_ratio = (GAME.show_minimap + 1)*2
+        minimap_x = 10
+        minimap_y = game_constants.CAMERA_HEIGHT*32-len(GAME.map[0])*minimap_ratio-100
+        minimap_width = len(GAME.map)*minimap_ratio
+        minimap_height = len(GAME.map[0])*minimap_ratio
+        if GAME.show_minimap != 2:
+            pygame.draw.rect(SCREEN, game_constants.COLOR_DARKGRAY, pygame.Rect(minimap_x, minimap_y, minimap_width, minimap_height))
+            for x in range(len(GAME.map)):
+                for y in range(len(GAME.map[x])):
+                    if GAME.map[x][y].discovered:
+                        if GAME.map[x][y].passable:
+                            pygame.draw.rect(SCREEN, game_constants.COLOR_GRAY, pygame.Rect(minimap_x+1, minimap_y+1, 1, 1))
+                        else:
+                            pygame.draw.rect(SCREEN, game_constants.COLOR_WHITE, pygame.Rect(minimap_x+x*minimap_ratio, minimap_y+y*minimap_ratio, minimap_ratio, minimap_ratio))
+            pygame.draw.rect(SCREEN, game_constants.COLOR_YELLOW, pygame.Rect(minimap_x+GAME.player.x*minimap_ratio, minimap_y+GAME.player.y*minimap_ratio, minimap_ratio, minimap_ratio))
 def draw_entities():
     GAME.update_rects.append(GAME.surface_entities.fill(game_constants.COLOR_COLORKEY))
     for i in GAME.creatures + GAME.entities + GAME.items:
@@ -282,7 +248,8 @@ def draw_menu():
 
 
 # EXECUTION
+
 if __name__ == '__main__':
-    pygame.init()
-    game_init()
-    game_loop()
+    GAME.start(game_content.p_normal(game_constants.MAP_WIDTH[0] // 2, game_constants.MAP_HEIGHT[0] // 2), game_mapping.mapgen_woods)
+    clock.schedule_interval(game_loop, 1 / 120.0)
+    app.run()
