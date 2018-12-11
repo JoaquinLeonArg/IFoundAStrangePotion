@@ -12,6 +12,8 @@ class Game:
         self.debug = True
 
         # Initialization of game structures
+        self.inputs = {value: False for value in ['up', 'down', 'left', 'right', 'use', 'cancel', 'pass']}
+        self.input_timers = {value: 0 for value in ['up', 'down', 'left', 'right', 'use', 'cancel', 'pass']}
         self.log = []
         self.creatures = []
         self.camera = Camera()
@@ -54,7 +56,19 @@ class Game:
         self.player = player
         self.generate_map(map)
         self.creatures.append(GAME.player)
-
+    def input(self, key, value):
+        self.inputs[key] = value
+    def update_inputs(self):
+        if self.player.active:
+            for key in ['left', 'right', 'up', 'down']:
+                if self.inputs[key] and not self.input_timers[key] and not self.gfx_active:
+                    self.player.input(key)
+                    break
+        for key in self.inputs:
+            if self.inputs[key]:
+                self.input_timers[key] = (self.input_timers[key] + 1) % game_constants.ANIMATIONS['player_delay']
+            else:
+                self.input_timers[key] = 0
     def set_popup(self, message_lines, max_time):
         if not message_lines:
             self.popup_target_y = 0
@@ -77,10 +91,6 @@ class Game:
     def entities_execute(self):
         for entity in self.entities + self.creatures + self.items:
             entity.event('turn', [entity])
-            if libtcodpy.map_is_in_fov(self.light_map, entity.x, entity.y):
-                entity.last_seen_pos = (entity.x, entity.y)
-                entity.last_seen_image = entity.frame
-                entity.last_visible = entity.visible
     def place_free(self, x, y):
         for obj in self.creatures:
             if obj.x == x and obj.y == y:
@@ -132,23 +142,21 @@ class Camera:
         self.y = 0
     def update(self, x, y):
         self.x += (x-self.x-game_constants.CAMERA_WIDTH*16)*0.05
-        self.y += (game_constants.MAP_HEIGHT[GAME.level]*32-y-self.y-game_constants.CAMERA_HEIGHT*16)*0.05
-        self.x = int(game_util.clamp(self.x, 0, game_constants.MAP_WIDTH[GAME.level]*32 - game_constants.CAMERA_WIDTH*32))
-        self.y = int(game_util.clamp(self.y, 0, game_constants.MAP_HEIGHT[GAME.level]*32 - game_constants.CAMERA_HEIGHT*32))
+        self.y += (-y+game_constants.MAP_HEIGHT[0]*32-self.y-game_constants.CAMERA_HEIGHT*16)*0.05
+        self.x = int(game_util.clamp(self.x, 32, game_constants.MAP_WIDTH[0]*32 - game_constants.CAMERA_WIDTH*32 - 32))
+        self.y = int(game_util.clamp(self.y, 32, game_constants.MAP_HEIGHT[0]*32 - game_constants.CAMERA_HEIGHT*32 - 32))
 class VisualEffect:
-    def __init__(self, x, y, visible, images):
+    def __init__(self, x, y, visible):
         self.x = x
         self.y = y
         self.visible = visible
-        self.sprite = sprite.Sprite(images[0])
-        self.image = images[0]
     def update(self):
         pass
     def destroy(self):
-        if self in GAME.visualactiveeffects:
-            GAME.visualactiveeffects.remove(self)
-        if self in GAME.visualeffects:
-            GAME.visualeffects.remove(self)
+        if self in GAME.gfx_active:
+            GAME.gfx_active.remove(self)
+        if self in GAME.gfx:
+            GAME.gfx.remove(self)
 class AnimationOnce(VisualEffect):
     def __init__(self, x, y, images, frame_wait):
         super().__init__(x, y, True, images)
@@ -164,43 +172,22 @@ class AnimationOnce(VisualEffect):
                 return
             self.counter_next = 0
             self.image = self.images[self.frame]
-class LoopVisualEffect(VisualEffect):
-    def __init__(self, x, y, visible, images, frame_wait):
-        super().__init__(x, y, visible, images)
-        self.frame_wait = frame_wait
-        self.counter_next = 0
-        self.frame = 0
-    def update(self):
-        self.counter_next += 1
-        if self.counter_next == self.frame_wait:
-            self.counter_next = 0
-            self.frame = (self.frame + 1) % len(self.images)
-            self.image = self.images[self.frame]
-    def destroy(self):
-        if self in GAME.gfx:
-            GAME.gfx.remove(self)
-        if self in GAME.gfx_active:
-            GAME.gfx_active.remove(self)
-class CreatureMoveVisualEffect(LoopVisualEffect):
-    def __init__(self, creature, from_pos, to_pos, duration):
-        super().__init__(creature.x, creature.y, True, creature.sprite_list[creature.frame:] + creature.sprite_list[:creature.frame], game_constants.ANIMATION_WAIT * 8)
+class CreatureMoveVisualEffect(VisualEffect):
+    def __init__(self, creature, to_pos):
+        super().__init__(creature.x*32, creature.y*32, True)
+        self.sprite = creature.sprite
         self.creature = creature
-        self.dx, self.dy = to_pos[0]*32, to_pos[1]*32
-        self.duration = duration
-        self.current = 0
         self.creature.visible = False
-        self.x *= 32
-        self.y *= 32
+        self.dx, self.dy = to_pos[0]*32, to_pos[1]*32
+        self.timer = 0
+        self.speed = self.dx / game_constants.ANIMATIONS['move_speed'], self.dy / game_constants.ANIMATIONS['move_speed']
     def update(self):
-        if self.duration == 0:
-            self.destroy()
-            return
-        self.current += 1
-        self.x += self.dx / self.duration
-        self.y += self.dy / self.duration
         super().update()
-        if self.current == self.duration:
+        self.timer += 1
+        if self.timer == game_constants.ANIMATIONS['move_speed']:
             self.destroy()
+        self.x += self.speed[0]
+        self.y += self.speed[1]
     def destroy(self):
         super().destroy()
         self.creature.visible = True
@@ -275,37 +262,21 @@ class SelectTarget:
         pass
 
 class Entity:
-    def __init__(self, x, y, tags, sprite_list, behaviors = []):
+    def __init__(self, x, y, tags, img, behaviors=[]):
         self.x = x
         self.y = y
         self.behaviors = behaviors
         self.tags = tags
         self.visible = True
         self.priority = 0
-        self.sprite_list = sprite_list
-        self.sprite = sprite.Sprite(self.sprite_list[0], x=0, y=0, batch=GAME.bentities)
-        self.frame = 0
-        self.counter_next = 0
-        '''self.sprites_shadow = [sprite.convert() for sprite in self.sprite_list]
-        dark = pygame.Surface((self.sprite.get_width(), self.sprite.get_height()), flags=pygame.SRCALPHA)
-        dark.fill((50, 50, 50, 0))
-        for sprite in self.sprites_shadow:
-            sprite.set_colorkey(game_constants.COLOR_COLORKEY)
-            sprite.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            sprite.set_colorkey((49, 0 ,49))'''
+        self.sprite = sprite.Sprite(image.Animation.from_image_sequence(image.TextureGrid(image.ImageGrid(img, 1, int(img.width/32), item_width=32, item_height=32)), game_constants.ANIMATIONS['speed'], loop=True),
+                                    x=0, y=0, batch=GAME.bentities)
         self.last_seen_pos = None
         self.last_seen_visible = True
-        self.last_seen_image = self.frame
     def draw_last_seen(self):
         self.draw()
         '''if self.last_seen_visible and self.last_seen_pos:
             GAME.surface_entities.blit(self.sprites_shadow[self.last_seen_image], (self.last_seen_pos[0] * 32 - GAME.camera.x, self.last_seen_pos[1] * 32 - GAME.camera.y))'''
-    def update_frame(self):
-        self.counter_next += 1
-        if self.counter_next == game_constants.ANIMATION_WAIT * 8:
-            self.counter_next = 0
-            self.frame = (self.frame + 1) % len(self.sprite_list)
-            #self.sprite = self.sprite_list[self.frame]
     def destroy(self):
         GAME.entities.remove(self)
     def event(self, event_name, args = ()):

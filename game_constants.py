@@ -16,6 +16,12 @@ DESCWINDOW_HEIGHT = 200
 ANIMATION_WAIT = 2
 ANIMATION_RATE = 5
 
+ANIMATIONS = {
+    'speed': 0.1,
+    'move_speed': 4,
+    'player_delay': 4
+}
+
 COLORS = {
     'colorkey': (255, 0, 255),
     'black': (0, 0, 0)
@@ -57,11 +63,12 @@ COLOR_NEGATIVESTAT = (200, 100, 100)
 COLOR_COLORKEY = (255, 0, 255)
 
 SPRITES = {
-    'player': [resource.image('resources/graphics/entities/player.png')],
-    'door_closed': [resource.image('resources/graphics/entities/door_closed.png')],
-    'door_open': [resource.image('resources/graphics/entities/door_open.png')],
-    'tall_grass': [resource.image('resources/graphics/entities/tall_grass.png')],
-    'tall_grass_destroyed': [resource.image('resources/graphics/entities/tall_grass_destroyed.png')]
+    'player': resource.image('resources/graphics/entities/player.png'),
+    'door_closed': resource.image('resources/graphics/entities/door_closed.png'),
+    'door_open': resource.image('resources/graphics/entities/door_open.png'),
+    'tall_grass': resource.image('resources/graphics/entities/tall_grass.png'),
+    'tall_grass_destroyed': resource.image('resources/graphics/entities/tall_grass_destroyed.png'),
+    'slime': resource.image('resources/graphics/entities/tall_grass_destroyed.png')
 }
 
 SPRITE_PLAYER = resource.image('resources/player2.png')
@@ -82,8 +89,8 @@ SPRITE_MARKER = resource.image('resources/graphics/marker.png')
 
 SPRITE_BACK_68X68 = resource.image('resources/graphics/back_68x68.png')
 
-MAP_WIDTH = [100, 60, 60, 50]
-MAP_HEIGHT = [60, 60, 70, 60]
+MAP_WIDTH = [50, 60, 60, 50]
+MAP_HEIGHT = [50, 60, 70, 60]
 
 BORDER_THICKNESS = 2
 

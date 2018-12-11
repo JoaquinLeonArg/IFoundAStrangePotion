@@ -468,8 +468,8 @@ class BehaviorPlayerBase:
             for entity in GAME.entities: # Movement to a tile with an open-able entity.
                 if entity.x == parent.x + dx and entity.y == parent.y + dy:
                     if 'openable' in entity.tags:
-                        if not entity.isOpen:
-                            return
+                        if not entity.is_open:
+                            entity.event('walk', [])
                     if 'walkable' in entity.tags:
                         entity.event('walk', [])
                     elif 'exit' in entity.tags:
@@ -477,7 +477,7 @@ class BehaviorPlayerBase:
                         GAME.generate_map(game_mapping.mapgen_dungeon(100, 100))
             if GAME.place_free(parent.x + dx, parent.y + dy): # Movement to a free tile.
                 if GAME.map[parent.x + dx][parent.y + dy].passable:
-                    GAME.gfx.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
+                    GAME.gfx_active.append(game_classes.CreatureMoveVisualEffect(parent, (dx, dy)))
                     parent.x += dx
                     parent.y += dy
                     GAME.action = 'move'
@@ -486,7 +486,7 @@ class BehaviorPlayerBase:
                 parent.damage(1, 'starvation', None)
         elif event == 'attack':
             for enemy in args[0]:
-                linear_damage(parent, enemy, parent.getStat('PhyAttack'), 'physical', None)
+                linear_damage(parent, enemy, parent.get_stat('PhyAttack'), 'physical', None)
             for tile in args[1]:
                 if parent.equipment[0] and parent.equipment[0].spriteattack_list:
                     GAME.visualeffects.append(game_classes.AnimationOnce(*tile, parent.equipment[0].spriteattack_list, game_constants.ANIMATION_WAIT*2))
@@ -517,13 +517,13 @@ class BehaviorMonsterBase:
                     parent.event('move', (parent, (0, -game_util.sign(relative_pos[1]))))
         if event == 'move':
             dx, dy = args[1][0], args[1][1]
-            if GAME.placeFree(parent.x + dx, parent.y + dy):  # Movement to a free tile.
+            if GAME.place_free(parent.x + dx, parent.y + dy):  # Movement to a free tile.
                 if GAME.map[parent.x + dx][parent.y + dy].passable:
-                    GAME.visualactiveeffects.append(game_classes.CreatureMoveVisualEffect(parent, (parent.x, parent.y), (dx, dy), GAME.movetimer))
+                    GAME.gfx_active.append(game_classes.CreatureMoveVisualEffect(parent, (dx, dy)))
                     parent.x += dx
                     parent.y += dy
         if event == 'attack':
-            linear_damage(parent, GAME.player, parent.getStat('PhyAttack'), 'physical', None)
+            linear_damage(parent, GAME.player, parent.get_stat('PhyAttack'), 'physical', None)
         if event == 'takedamage':
             origin, amount, damage_type, subtype = args[1], args[2], args[3], args[4]
             if parent.currentHitPoints - amount <= 0:
@@ -561,19 +561,20 @@ def c_creature_in_location(x, y):
 # ENTITIES
 class EntityDoor(game_classes.Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, ['openable', 'door', 'impassable'], game_constants.SPRITES['door'])
-        self.sprite_open = game_constants.SPRITES['door']
-        self.isOpen = False
+        super().__init__(x, y, ['openable', 'door', 'impassable'], game_constants.SPRITES['door_closed'])
+        self.sprite_open = game_constants.SPRITES['door_open']
+        self.is_open = False
 
     def event(self, event_name, args):
         if event_name == 'walk':
-            self.isOpen = True
-            self.sprite_list = self.sprite_open
-            GAME.map[self.x][self.y].passable = True
-            GAME.map[self.x][self.y].transparent = True
-            libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, True, True)
-            game_util.map_light_update(GAME.light_map)
-            GAME.action = 'open'
+            if not self.is_open:
+                self.is_open = True
+                self.sprite_list = self.sprite_open
+                GAME.map[self.x][self.y].passable = True
+                GAME.map[self.x][self.y].transparent = True
+                libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, True, True)
+                game_util.map_light_update(GAME.light_map)
+                GAME.action = 'open'
 
     def destroy(self):
         super().destroy()
@@ -610,7 +611,7 @@ def p_normal(x, y):
                                    portrait_list=[],
                                    stats=player_basic_stats(),
                                    equipment=[None for _ in range(7)],
-                                   inventory=[drill(0, 0) for _ in range(20)],
+                                   inventory=[],
                                    modifiers=[],
                                    status=[],
                                    skilltree=[],
@@ -639,29 +640,11 @@ def slime_stats():
 
 def linear_damage(origin, target, amount, maintype, subtype):
     if maintype == 'physical':
-        damage = math.ceil(amount*(4**(-target.getStat('PhyArmor')/300)))
+        damage = math.ceil(amount*(4**(-target.get_stat('PhyArmor')/300)))
     elif maintype == 'magical':
-        damage = math.ceil(amount*(4**(-target.getStat('MagArmor')/300)))
+        damage = math.ceil(amount*(4**(-target.get_stat('MagArmor')/300)))
     else:
         damage = 0
-    GAME.addLogMessage(origin.name + ' damages ' + target.name + ' for ' + str(damage) + '.', game_constants.COLOR_LIGHTRED)
+    GAME.add_log_message(origin.name + ' damages ' + target.name + ' for ' + str(damage) + '.', game_constants.COLOR_LIGHTRED)
     origin.event('dodamage', (target, origin, damage, maintype, subtype))
     target.event('takedamage', (target, origin, damage, maintype, subtype))
-
-
-# For testing only
-def drill(x, y):
-    return game_classes.LongSword(x, y,
-                                  'Adamant drill',
-                                  'Mythic',
-                                  3,
-                                  'This is the drill that will pierce the heavens.',
-                                  [game_effects.linearStat(10, 'PhyAttackFlat', 200),
-                                   game_effects.linearStat(10, 'HitPointsFlat', 1000)],
-                                  [game_effects.drillMod(10)],
-                                  [game_effects.minimumStat('PhyAttack', 1)],
-                                  ['drill'],
-                                  game_constants.SPRITES['door_closed'],
-                                  [])
-
-

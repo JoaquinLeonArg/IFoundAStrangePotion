@@ -32,99 +32,87 @@ def game_loop(dt):
     if GAME.movetimer > 0:
         GAME.movetimer -= 1
     GAME.camera.update(GAME.player.x * 32, GAME.player.y * 32)
-    for entity in GAME.entities + GAME.items + GAME.creatures + GAME.player.inventory:
-        entity.update_frame()
+    GAME.update_inputs()
     for gfx in GAME.gfx + GAME.gfx_active:
         gfx.update()
     if GAME.action != 'none':
-        GAME.updateOrder()
-        GAME.entitiesExecuteTurn()
+        GAME.update_order()
+        GAME.entities_execute()
         GAME.turn_counter += 1
 
 @SCREEN.event
 def on_key_press(symbol, _):
-    if not GAME.gfx_active and not GAME.movetimer and GAME.player.active:
-        if symbol == window.key.UP:
-            GAME.player.input('up')
-        elif symbol == window.key.DOWN:
-            GAME.player.input('down')
-        elif symbol == window.key.LEFT:
-            GAME.player.input('left')
-        elif symbol == window.key.RIGHT:
-            GAME.player.input('right')
-        elif symbol == game_constants.KEY_PASSTURN:
-            GAME.player.input('pass')
-
-        if symbol == game_constants.KEY_MAPUP:
-            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16, GAME.camera.y + game_constants.CAMERA_HEIGHT*16 - 128)
-        elif symbol == game_constants.KEY_MAPDOWN:
-            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16, GAME.camera.y + game_constants.CAMERA_HEIGHT*16 + 128)
-        elif symbol == game_constants.KEY_MAPLEFT:
-            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16 - 128, GAME.camera.y + game_constants.CAMERA_HEIGHT*16)
-        elif symbol == game_constants.KEY_MAPRIGHT:
-            GAME.camera.update(GAME.camera.x + game_constants.CAMERA_WIDTH*16 + 128, GAME.camera.y + game_constants.CAMERA_HEIGHT*16)
+    if symbol == window.key.UP:
+        GAME.input('up', True)
+    elif symbol == window.key.DOWN:
+        GAME.input('down', True)
+    elif symbol == window.key.LEFT:
+        GAME.input('left', True)
+    elif symbol == window.key.RIGHT:
+        GAME.input('right', True)
+    elif symbol == game_constants.KEY_PASSTURN:
+        GAME.input('pass', True)
 
     if symbol == window.key.ESCAPE:
         app.exit()
 
-        if not GAME.visualactiveeffects:
-                if symbol == game_constants.KEY_INVENTORY and not GAME.window:
-                    GAME.window = game_content.WindowPlayerInventory()
-                elif symbol == game_constants.KEY_SEARCH and not GAME.window:
-                    if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
-                        GAME.window = game_content.WindowSearchInventory()
-                    else:
-                        GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
-                elif symbol == game_constants.KEY_STATUS and not GAME.window:
-                    GAME.window= game_content.WindowStatus()
-                elif symbol == game_constants.KEY_STATS and not GAME.window:
-                    GAME.window = game_content.WindowStats()
-                elif symbol == game_constants.KEY_EQUIPMENT and not GAME.window:
-                    GAME.window = game_content.WindowEquipment()
-                elif symbol == game_constants.KEY_SKILLTREE and not GAME.window:
-                    GAME.window = game_content.WindowSkillTree()
-
-                if GAME.window:
-                    if symbol == window.key.LEFT:
-                        GAME.window.input('left')
-                    elif symbol == window.key.RIGHT:
-                        GAME.window.input('right')
-                    elif symbol == window.key.UP:
-                        GAME.window.input('up')
-                    elif symbol == window.key.DOWN:
-                        GAME.window.input('down')
-                    elif symbol == game_constants.KEY_USE:
-                        GAME.window.input('use')
-                    elif symbol == game_constants.KEY_CANCEL:
-                        GAME.window.input('cancel')
-
-                if symbol == game_constants.KEY_LOG:
-                    GAME.long_log = not GAME.long_log
-                if symbol == game_constants.KEY_MINIMAP:
-                    GAME.show_minimap = (GAME.show_minimap + 1) % 3
+    if not GAME.gfx_active and not GAME.window:
+            if symbol == game_constants.KEY_INVENTORY:
+                GAME.window = game_content.WindowPlayerInventory()
+            elif symbol == game_constants.KEY_SEARCH:
+                if len([item for item in GAME.items if (item.x == GAME.player.x and item.y == GAME.player.y)]) > 0:
+                    GAME.window = game_content.WindowSearchInventory()
+                else:
+                    GAME.addLogMessage('Nothing here.', game_constants.COLOR_GRAY)
+            elif symbol == game_constants.KEY_STATUS:
+                GAME.window= game_content.WindowStatus()
+            elif symbol == game_constants.KEY_STATS:
+                GAME.window = game_content.WindowStats()
+            elif symbol == game_constants.KEY_EQUIPMENT:
+                GAME.window = game_content.WindowEquipment()
+            elif symbol == game_constants.KEY_SKILLTREE:
+                GAME.window = game_content.WindowSkillTree()
+            if symbol == game_constants.KEY_LOG:
+                GAME.long_log = not GAME.long_log
+            if symbol == game_constants.KEY_MINIMAP:
+                GAME.show_minimap = (GAME.show_minimap + 1) % 3
+@SCREEN.event
+def on_key_release(symbol, _):
+    if symbol == window.key.UP:
+        GAME.input('up', False)
+    elif symbol == window.key.DOWN:
+        GAME.input('down', False)
+    elif symbol == window.key.LEFT:
+        GAME.input('left', False)
+    elif symbol == window.key.RIGHT:
+        GAME.input('right', False)
+    elif symbol == game_constants.KEY_PASSTURN:
+        GAME.input('pass', False)
 
 # DRAW
 def in_camera(x, y):
-    return (GAME.camera.x // 32) < x < (GAME.camera.x // 32) + game_constants.CAMERA_WIDTH and (GAME.camera.y // 32) < y < (GAME.camera.y // 32) + game_constants.CAMERA_HEIGHT
+    return int(GAME.camera.x / 32) < x < int(GAME.camera.x / 32) + game_constants.CAMERA_WIDTH and int(GAME.camera.y / 32) < y < int(GAME.camera.y / 32) + game_constants.CAMERA_HEIGHT
 def grid_to_camera(x, y):
-    return x*32 - GAME.camera.x, game_constants.MAP_HEIGHT[GAME.level]*32 - y*32 - GAME.camera.y
+    return x*32 - GAME.camera.x, game_constants.MAP_HEIGHT[0]*32 - y*32 - GAME.camera.y
 def absolute_to_camera(x, y):
-    return x - GAME.camera.x, game_constants.MAP_HEIGHT[GAME.level] * 32 - y - GAME.camera.y
+    return x - GAME.camera.x, game_constants.MAP_HEIGHT[0]*32 - y - GAME.camera.y
 
 @SCREEN.event
 def on_draw():
     SCREEN.clear()
     if not GAME.level:
         return
-
     # Draw Tiles
-    for i in range(len(GAME.map)):
-        for j in range(len(GAME.map[0])):
-            if libtcodpy.map_is_in_fov(GAME.light_map, i, j):
-                GAME.map[i][j].sprite.position = grid_to_camera(GAME.map[i][j].x, GAME.map[i][j].y)
-                GAME.map[i][j].sprite.batch = GAME.btiles
-            else:
-                GAME.map[i][j].sprite.batch = None
+    for i in range(int(GAME.camera.x / 32) - 2, int(GAME.camera.x / 32) + game_constants.CAMERA_WIDTH + 2):
+        for j in range(int(game_constants.MAP_HEIGHT[0] - GAME.camera.y / 32) - int(game_constants.CAMERA_WIDTH/2) - 2, int(game_constants.MAP_HEIGHT[0] - GAME.camera.y / 32) + 4):
+            try:
+                if libtcodpy.map_is_in_fov(GAME.light_map, i, j) or GAME.debug:
+                    GAME.map[i][j].sprite.position = grid_to_camera(GAME.map[i][j].x, GAME.map[i][j].y)
+                    GAME.map[i][j].sprite.batch = GAME.btiles
+                else:
+                    GAME.map[i][j].sprite.batch = None
+            except:
+                pass
     # Draw Entities + Creatures
     for e in GAME.entities + GAME.creatures:
         if libtcodpy.map_is_in_fov(GAME.light_map, e.x, e.y) and e.visible:
@@ -250,6 +238,6 @@ def draw_menu():
 # EXECUTION
 
 if __name__ == '__main__':
-    GAME.start(game_content.p_normal(game_constants.MAP_WIDTH[0] // 2, game_constants.MAP_HEIGHT[0] // 2), game_mapping.mapgen_woods)
+    GAME.start(game_content.p_normal(game_constants.MAP_WIDTH[0] // 2, game_constants.MAP_HEIGHT[0] // 2), game_mapping.mapgen_dungeon)
     clock.schedule_interval(game_loop, 1 / 120.0)
     app.run()

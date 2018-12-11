@@ -103,7 +103,7 @@ def mapgen_dungeon(width, height):
     for i in range(len(tiles)):
         for j in range(len(tiles[i])):
             tiles_return[i][j] = game_classes.Tile(i, j, *TILES_DUNGEON[tiles[i][j]])
-            if len(tiles) - 1 > i > 0 and len(tiles[0]) - 1 > j > 0 and tiles[i][j] in [-2, 0]:
+            '''if len(tiles) - 1 > i > 0 and len(tiles[0]) - 1 > j > 0 and tiles[i][j] in [-2, 0]:
                 if tiles[i - 1][j] not in [-2, 0]:
                     tiles_return[i][j].outline(0)
                 if tiles[i][j - 1] not in [-2, 0]:
@@ -112,7 +112,7 @@ def mapgen_dungeon(width, height):
                     tiles_return[i][j].outline(2)
                 if tiles[i][j + 1] not in [-2, 0]:
                     tiles_return[i][j].outline(3)
-                tiles_return[i][j].generate_sprite_shadow()
+                tiles_return[i][j].generate_sprite_shadow()'''
 
 
     for door in doors:
