@@ -18,13 +18,31 @@ ANIMATION_RATE = 5
 
 ANIMATIONS = {
     'speed': 0.1,
-    'move_speed': 4,
-    'player_delay': 4
+    'move_speed': 5,
+    'player_delay': 5
 }
 
+COLORS_BASE = {
+    'black': (0, 0, 0),
+    'white': (255, 255, 255),
+
+    'green1': (0, 200, 0),
+    'green2': (0, 160, 0),
+    'green3': (0, 120, 0),
+    'green4': (0, 80, 0),
+    'green5': (0, 30, 0),
+
+    'blue1': (0, 0, 200),
+    'blue2': (0, 0, 160),
+    'blue3': (0, 0, 120),
+    'blue4': (0, 0, 80),
+    'blue5': (0, 0, 30),
+
+    'lightblue': (100, 100, 200)
+}
 COLORS = {
-    'colorkey': (255, 0, 255),
-    'black': (0, 0, 0)
+    'health_bar': COLORS_BASE['green2'],
+    'magic_bar': COLORS_BASE['lightblue']
 }
 
 TILE_SPRITES = {
@@ -59,7 +77,6 @@ COLOR_HUNGER = (0, 200, 0)
 COLOR_MENUHIGHLIGHT = (100, 100, 200)
 COLOR_POSITIVESTAT = (100, 200, 100)
 COLOR_NEGATIVESTAT = (200, 100, 100)
-
 COLOR_COLORKEY = (255, 0, 255)
 
 SPRITES = {
@@ -69,6 +86,9 @@ SPRITES = {
     'tall_grass': resource.image('resources/graphics/entities/tall_grass.png'),
     'tall_grass_destroyed': resource.image('resources/graphics/entities/tall_grass_destroyed.png'),
     'slime': resource.image('resources/graphics/entities/tall_grass_destroyed.png')
+}
+UI_SPRITES = {
+    'status_window': resource.image('resources/graphics/ui/ui_status.png')
 }
 
 SPRITE_PLAYER = resource.image('resources/player2.png')
@@ -84,9 +104,7 @@ SPRITE_LOG = resource.image('resources/graphics/ui/ui_log.png')
 SPRITE_POPUP = resource.image('resources/graphics/ui/ui_popup.png')
 SPRITE_ITEMLIST = resource.image('resources/graphics/ui/ui_itemlist.png')
 SPRITE_INVENTORYDESCRIPTION = resource.image('resources/graphics/ui/ui_inventorydescription.png')
-
 SPRITE_MARKER = resource.image('resources/graphics/marker.png')
-
 SPRITE_BACK_68X68 = resource.image('resources/graphics/back_68x68.png')
 
 MAP_WIDTH = [50, 60, 60, 50]
@@ -118,16 +136,8 @@ KEY_STATUS = window.key.T
 KEY_SKILLTREE = window.key.K
 KEY_MINIMAP = window.key.M
 KEY_PASSTURN = window.key.W
-
 KEY_USE = window.key.S
 KEY_CANCEL = window.key.C
-
-TEXT_ONMAP = [('I:', 'inventory'), ('E:', 'equipment'), ('F:', 'search'), ('T:', 'status'), ('Z', 'stats')]
-TEXT_ONINVENTORY = [('S:', 'select'), ('C:', 'go back')]
-TEXT_ONPOPUP = [('S:', 'select'), ('C:', 'go back')]
-TEXT_ONSEARCH = [('S:', 'grab'), ('C:', 'go back')]
-TEXT_ONSTATUS = [('C:', 'go back')]
-TEXT_ONEQUIPMENT = [('S:', 'select'), ('C:', 'go back')]
 
 MONSTERS_POOL = [[0], [0], [0], [0], [0], [0]]
 
@@ -182,15 +192,18 @@ BASE_STATS = {
     'EmpEffectivenessMult': 100,
     'EmpDuration': 0
 }
-
-# Surfaces positions
-STATUS_IDLE_X = (CAMERA_WIDTH*32 - SPRITE_STATUS.width) // 2
-STATUS_IDLE_Y = CAMERA_HEIGHT*32 - SPRITE_STATUS.height - 128
-STATUS_HIDDEN_X = STATUS_IDLE_X
-STATUS_HIDDEN_Y = CAMERA_HEIGHT*32
-POPUP_IDLE_X = 220
-POPUP_IDLE_Y = 0
-LOG_IDLE_X = CAMERA_WIDTH * 32 - SPRITE_LOG.width - 24
-LOG_IDLE_Y = 24
-LOG_HIDDEN_X = LOG_IDLE_X
-LOG_HIDDEN_Y = 0 # TODO Fix log reappearing slowly because of negative Y position
+UI_POSITIONS = {
+    'status': {
+        'idle_x': WINDOW_WIDTH / 2 - UI_SPRITES['status_window'].width / 2,
+        'idle_y': UI_SPRITES['status_window'].height - 60,
+        'hidden_y': - UI_SPRITES['status_window'].height
+    },
+    'popup': {
+        'idle_x': 220,
+        'idle_y': 200
+    },
+    'log': {
+        'idle_x': 100,
+        'idle_y': 100
+    }
+}

@@ -9,7 +9,9 @@ class Game:
     def __init__(self):
         self.btiles = graphics.Batch()
         self.bentities = graphics.Batch()
-        self.debug = True
+        self.bgfx = graphics.Batch()
+        self.sstatus = sprite.Sprite(game_constants.UI_SPRITES['status_window'], game_constants.UI_POSITIONS['status']['idle_x'], game_constants.UI_POSITIONS['status']['idle_y'])
+        self.debug = False
 
         # Initialization of game structures
         self.inputs = {value: False for value in ['up', 'down', 'left', 'right', 'use', 'cancel', 'pass']}
@@ -26,7 +28,6 @@ class Game:
 
         # General
         self.turn_counter = 0
-        self.controlsText = game_constants.TEXT_ONMAP
         self.long_log = False
         self.show_minimap = 0
 
@@ -48,9 +49,14 @@ class Game:
         self.popup_lines = []
 
         # Surfaces positions
-        self.status_position_x, self.status_position_y = (game_constants.STATUS_IDLE_X, game_constants.STATUS_IDLE_Y)
-        self.popup_position_x, self.popup_position_y = (game_constants.POPUP_IDLE_X, game_constants.POPUP_IDLE_Y)
-        self.log_position_x, self.log_position_y = (game_constants.LOG_IDLE_X, game_constants.LOG_IDLE_Y)
+        self.ui_positions = {
+            'status_x': game_constants.UI_POSITIONS['status']['idle_x'],
+            'status_y': game_constants.UI_POSITIONS['status']['idle_y'],
+            'popup_x': game_constants.UI_POSITIONS['popup']['idle_x'],
+            'popup_y': game_constants.UI_POSITIONS['popup']['idle_y'],
+            'log_x': game_constants.UI_POSITIONS['log']['idle_x'],
+            'log_y': game_constants.UI_POSITIONS['log']['idle_y']
+        }
 
     def start(self, player, map):
         self.player = player
@@ -69,22 +75,6 @@ class Game:
                 self.input_timers[key] = (self.input_timers[key] + 1) % game_constants.ANIMATIONS['player_delay']
             else:
                 self.input_timers[key] = 0
-    def set_popup(self, message_lines, max_time):
-        if not message_lines:
-            self.popup_target_y = 0
-            self.popup_time = -1
-        else:
-            self.popup_target_y = len(message_lines)*12 + 20
-            self.popup_time = max_time
-            self.popup_lines = message_lines
-    def update_popuptime(self):
-        if self.popup_time > 0:
-            self.popup_time -= 1
-        elif self.popup_time == 0:
-            self.set_popup(None, 0)
-            self.popup_time = -1
-        if self.popup_time == -1 and self.popup_position_y == 0:
-            self.popup_lines = []
     def add_log_message(self, message, color):
         for i in reversed(game_util.wrap_text(message, 46)):
             self.log.insert(0, (i, color))
@@ -110,19 +100,25 @@ class Game:
         for x in range(game_constants.MAP_WIDTH[self.level]):
             for y in range(game_constants.MAP_HEIGHT[self.level]):
                 libtcodpy.map_set_properties(self.light_map, x, y, self.map[x][y].transparent, self.map[x][y].passable)
+    def update_status_window(self):
+        if GAME.player.y > len(GAME.map) - 7:
+            GAME.ui_positions['status_y'] += (game_constants.UI_POSITIONS['status']['hidden_y'] - GAME.ui_positions['status_y']) * 0.2
+        else:
+            GAME.ui_positions['status_y'] += (game_constants.UI_POSITIONS['status']['idle_y'] - GAME.ui_positions['status_y']) * 0.2
+        self.sstatus.position = (GAME.ui_positions['status_x'], GAME.ui_positions['status_y'])
 
 class Tile:
     def __init__(self, x, y, passable, transparent, sprite_list, behaviors=[]):
         self.x = x
         self.y = y
         self.sprite = sprite.Sprite(sprite_list, x=0, y=0, batch=GAME.btiles)
+        self.sprite_shadow = sprite.Sprite(sprite_list, x=0, y=0, batch=None)
         self.passable = passable
         self.transparent = transparent
         self.behaviors = behaviors
         self.sprite_shadow = None
         self.discovered = False
         libtcodpy.map_set_properties(GAME.light_map, self.x, self.y, self.passable, self.transparent)
-        # self.generate_sprite_shadow()
     def event(self, event_name, args):
         for e in sorted(self.behaviors, key=lambda x: x.priority):
             e.execute(event_name, self, args)
@@ -157,21 +153,6 @@ class VisualEffect:
             GAME.gfx_active.remove(self)
         if self in GAME.gfx:
             GAME.gfx.remove(self)
-class AnimationOnce(VisualEffect):
-    def __init__(self, x, y, images, frame_wait):
-        super().__init__(x, y, True, images)
-        self.counter_next = 0
-        self.frame = 0
-        self.frame_wait = frame_wait
-    def update(self):
-        self.counter_next += 1
-        if self.counter_next == self.frame_wait:
-            self.frame += 1
-            if self.frame == len(self.images):
-                self.destroy()
-                return
-            self.counter_next = 0
-            self.image = self.images[self.frame]
 class CreatureMoveVisualEffect(VisualEffect):
     def __init__(self, creature, to_pos):
         super().__init__(creature.x*32, creature.y*32, True)
@@ -211,7 +192,7 @@ class Window:
     def input(self, key):
         if not self.active:
             return
-class SelectTarget:
+'''class SelectTarget:
     def __init__(self, parent_window, window_name, item, marker_sprite):
         self.previousCamera = (GAME.camera.x, GAME.camera.y)
         self.max_range = item.maxRange
@@ -251,7 +232,7 @@ class SelectTarget:
     def destroy(self):
         if self in GAME.windows:
             GAME.windows.remove(self)
-        if self.parent == None:
+        if not self.parent:
             GAME.player.active = True
         GAME.rd_win = True
     def input(self, key):
@@ -259,7 +240,7 @@ class SelectTarget:
         self.redraw_all = True
         GAME.rd_win = True
     def basicControls(self, key):
-        pass
+        pass'''
 
 class Entity:
     def __init__(self, x, y, tags, img, behaviors=[]):

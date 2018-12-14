@@ -1,4 +1,5 @@
 import math
+from pyglet.graphics import *
 from pyglet.resource import *
 import game_constants
 import libtcodpy
@@ -71,3 +72,40 @@ def map_light_update(light_map):
 def anchor_image(img):
     img.anchor_y -= img.height
     return img
+
+# DRAW
+def draw_rectangle_border(x, y, width, height, color, alpha=1):
+    main_batch = Batch()
+    main_batch.add(2, gl.GL_QUADS, None, ('v2i', (x, y, x + width, y)))
+    main_batch.add(2, gl.GL_LINES, None, ('v2f', (x + width, y, x + width, y + height)))
+    main_batch.add(2, gl.GL_LINES, None, ('v2f', (x + width, y + height, x, y + height)))
+    main_batch.add(2, gl.GL_LINES, None, ('v2f', (x, y + height, x, y)))
+    if alpha < 1:
+        glColor4f(*color, alpha)
+    else:
+        glColor3f(*color)
+    main_batch.draw()
+def draw_rectangle_filled(x, y, width, height, color, alpha=1):
+    main_batch = Batch()
+    main_batch.add(4, gl.GL_QUADS, None, ('v2i', (x, y,
+                                                  x + width, y,
+                                                  x + width, y + height,
+                                                  x, y + height)))
+    if alpha < 1:
+        glColor4f(*color, alpha)
+    else:
+        glColor3f(*color)
+    main_batch.draw()
+
+def draw_bar(x, y, width, height, color):
+    main_batch = Batch()
+    main_batch.add(4, gl.GL_QUADS, None, ('v2i', (x, y,
+                                                  x + width, y,
+                                                  x + width, y + height,
+                                                  x, y + height)),
+                                          ('c3B', (int(color[0]*0.8), int(color[1]*0.8), int(color[2]*0.8),
+                                                   int(color[0]*0.8), int(color[1]*0.8), int(color[2]*0.8),
+                                                   color[0], color[1], color[2],
+                                                   color[0], color[1], color[2])
+                                          ))
+    main_batch.draw()

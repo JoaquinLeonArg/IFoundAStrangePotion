@@ -102,50 +102,58 @@ def on_draw():
     SCREEN.clear()
     if not GAME.level:
         return
-    # Draw Tiles
+
+    # Process Tiles
     for i in range(int(GAME.camera.x / 32) - 2, int(GAME.camera.x / 32) + game_constants.CAMERA_WIDTH + 2):
         for j in range(int(game_constants.MAP_HEIGHT[0] - GAME.camera.y / 32) - int(game_constants.CAMERA_WIDTH/2) - 2, int(game_constants.MAP_HEIGHT[0] - GAME.camera.y / 32) + 4):
             try:
                 if libtcodpy.map_is_in_fov(GAME.light_map, i, j) or GAME.debug:
                     GAME.map[i][j].sprite.position = grid_to_camera(GAME.map[i][j].x, GAME.map[i][j].y)
                     GAME.map[i][j].sprite.batch = GAME.btiles
+                    GAME.map[i][j].sprite_shadow.batch = None
+                    GAME.map[i][j].discovered = True
+                elif GAME.map[i][j].discovered:
+                    GAME.map[i][j].sprite_shadow.position = grid_to_camera(GAME.map[i][j].x, GAME.map[i][j].y)
+                    GAME.map[i][j].sprite.batch = None
+                    GAME.map[i][j].sprite_shadow.batch = GAME.btiles
                 else:
                     GAME.map[i][j].sprite.batch = None
+                    GAME.map[i][j].sprite_shadow.batch = None
             except:
                 pass
-    # Draw Entities + Creatures
+    # Process Entities + Creatures
     for e in GAME.entities + GAME.creatures:
         if libtcodpy.map_is_in_fov(GAME.light_map, e.x, e.y) and e.visible:
             e.sprite.position = grid_to_camera(e.x, e.y)
             e.sprite.batch = GAME.bentities
         else:
             e.sprite.batch = None
+    # Process VisualEffects
+    for gfx in GAME.gfx + GAME.gfx_active:
+            gfx.sprite.position = absolute_to_camera(gfx.x, gfx.y)
+            gfx.sprite.batch = GAME.bgfx
+    # Process StatusWindow
+    GAME.update_status_window()
 
-    # Draw
+
+    # Draw everything
     GAME.btiles.draw()
     GAME.bentities.draw()
-    for gfx in GAME.gfx + GAME.gfx_active:
-        gfx.sprite.position = absolute_to_camera(gfx.x, gfx.y)
-        gfx.sprite.draw()
+    GAME.bgfx.draw()
+    GAME.sstatus.draw()
+    game_util.draw_bar(int(GAME.ui_positions['status_x']) + 90,
+                                    int(GAME.ui_positions['status_y']) + 64,
+                                    78 * int(GAME.player.currentHitPoints/GAME.player.get_stat('HitPoints')), 14, game_constants.COLORS['health_bar'])
+    game_util.draw_bar(int(GAME.ui_positions['status_x']) + 90,
+                       int(GAME.ui_positions['status_y']) + 46,
+                       78 * int(GAME.player.currentMagicPoints / GAME.player.get_stat('MagicPoints')), 14, game_constants.COLORS['magic_bar'])
+
     fps_display.draw()
 
     '''draw_log()
     draw_status()
-    draw_map()
-    draw_entities()
     draw_windows()
-    draw_effects()
     draw_minimap()'''
-
-def draw_map():
-    GAME.update_rects.append(GAME.surface_map.fill(game_constants.COLOR_BLACK))
-    for x in range(math.floor(GAME.camera.x/32), math.ceil(GAME.camera.x/32) + game_constants.CAMERA_WIDTH):
-        for y in range(math.floor(GAME.camera.y/32), math.ceil(GAME.camera.y/32) + game_constants.CAMERA_HEIGHT):
-            if libtcodpy.map_is_in_fov(GAME.light_map, x, y) or GAME.debug:
-                GAME.surface_map.blit(GAME.map[x][y].sprite, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
-                GAME.map[x][y].discovered = True
-            elif GAME.map[x][y].discovered:
-                GAME.surface_map.blit(GAME.map[x][y].sprite_shadow, (x*32 - GAME.camera.x, y*32 - GAME.camera.y))
 def draw_minimap():
     if not GAME.window:
         minimap_ratio = (GAME.show_minimap + 1)*2
@@ -163,13 +171,6 @@ def draw_minimap():
                         else:
                             pygame.draw.rect(SCREEN, game_constants.COLOR_WHITE, pygame.Rect(minimap_x+x*minimap_ratio, minimap_y+y*minimap_ratio, minimap_ratio, minimap_ratio))
             pygame.draw.rect(SCREEN, game_constants.COLOR_YELLOW, pygame.Rect(minimap_x+GAME.player.x*minimap_ratio, minimap_y+GAME.player.y*minimap_ratio, minimap_ratio, minimap_ratio))
-def draw_entities():
-    GAME.update_rects.append(GAME.surface_entities.fill(game_constants.COLOR_COLORKEY))
-    for i in GAME.creatures + GAME.entities + GAME.items:
-        if libtcodpy.map_is_in_fov(GAME.light_map, i.x, i.y):
-            i.draw()
-        else:
-            i.draw_last_seen()
 def draw_log():
     if GAME.player.y < 7:
         GAME.log_position_y += min((game_constants.LOG_HIDDEN_Y - GAME.log_position_y)*0.1, 1)
@@ -180,14 +181,6 @@ def draw_log():
         game_util.draw_text(GAME.surface_log, GAME.log[x][0], 10, x*14 + 10, game_constants.FONT_PERFECTDOS_SMALL, GAME.log[x][1])
 def draw_status():
     GAME.surface_status.fill(game_constants.COLOR_COLORKEY)
-    GAME.updatePopupTime()
-    if abs(GAME.popup_target_y - GAME.popup_position_y) < 1:
-        GAME.popup_position_y = GAME.popup_target_y
-    GAME.popup_position_y += (GAME.popup_target_y - GAME.popup_position_y)*0.1
-    if GAME.player.y > len(GAME.map) - 7:
-        GAME.status_position_y += min((game_constants.STATUS_HIDDEN_Y - GAME.status_position_y)*0.1, game_constants.WINDOW_HEIGHT*32 - 1)
-    else:
-        GAME.status_position_y += min((game_constants.STATUS_IDLE_Y - GAME.status_position_y)*0.1, game_constants.WINDOW_HEIGHT*32 - 1)
     if GAME.popup_position_y != 0:
         GAME.surface_status.blit(game_constants.SPRITE_POPUP, (GAME.popup_position_x, 128 - GAME.popup_position_y))
     for index, line in enumerate(GAME.popup_lines):
@@ -205,39 +198,10 @@ def draw_windows():
     if GAME.window:
         GAME.window.draw()
 
-def draw_menu():
-    sin = math.sin(MENU.timer)
-    MENU.timer += 0.1
-    if STATE == 0:
-        if MENU.rd_img:
-            MENU.update_rects.append(MENU.surface_logo.blit(game_constants.SPRITE_TITLE, (0, 0)))
-            MENU.rd_img = False
-        if MENU.rd_opt:
-            MENU.update_rects.append(MENU.surface_options.fill(game_constants.COLOR_COLORKEY))
-            pygame.draw.rect(MENU.surface_options, game_constants.COLOR_DARKRED, pygame.Rect(game_constants.WINDOW_WIDTH/2 - 128,  game_constants.WINDOW_HEIGHT*3/4 + MENU.option*32 - sin*2, 256, 32 + sin*4))
-            for i, text in enumerate(MENU.optionsText):
-                MENU.surface_options.blit(text, (game_constants.WINDOW_WIDTH/2 - text.get_width()/2, game_constants.WINDOW_HEIGHT*3/4 + i*32))
-
-        for surface in [MENU.surface_logo, MENU.surface_options]: # DRAW ALL SURFACES AT (0, 0)
-            SCREEN.blit(surface, (0, 0))
-
-
-    # FOR DEBUG PURPOSES
-    MENU.update_rects.append(game_util.draw_text_bg(SCREEN, 'FPS: ' + str(math.floor(CLOCK.get_fps())), 10, 28, game_constants.FONT_PERFECTDOS, game_constants.COLOR_WHITE, game_constants.COLOR_BLACK))
-
-    pygame.transform.scale(SCREEN, (game_constants.GAME_RESOLUTION_WIDTH, game_constants.GAME_RESOLUTION_HEIGHT), GAMEWINDOW)
-
-    pygame.display.flip()
-
-    #pygame.display.update(MENU.update_rects)
-    #MENU.update_rects = []
-#def draw_charselect():
-
-
 
 # EXECUTION
 
 if __name__ == '__main__':
     GAME.start(game_content.p_normal(game_constants.MAP_WIDTH[0] // 2, game_constants.MAP_HEIGHT[0] // 2), game_mapping.mapgen_dungeon)
-    clock.schedule_interval(game_loop, 1 / 120.0)
+    clock.schedule_interval(game_loop, 1 / 60.0)
     app.run()
